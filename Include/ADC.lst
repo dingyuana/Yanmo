@@ -1,0 +1,134 @@
+C51 COMPILER V9.54   ADC                                                                   11/01/2017 10:19:20 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE ADC
+OBJECT MODULE PLACED IN .\output\ADC.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Lib\ADC.c COMPACT ROM(COMPACT) OPTIMIZE(0,SPEED) BROWSE INCDIR(.\Common;
+                    -.\Include) DEBUG OBJECTEXTEND PRINT(.\Include\ADC.lst) TABS(2) OBJECT(.\output\ADC.obj)
+
+line level    source
+
+   1          
+   2          /*------------------------------------------------------------------*/
+   3          /* --- STC MCU International Limited -------------------------------*/
+   4          /* --- STC 1T Series MCU RC Demo -----------------------------------*/
+   5          /* --- Mobile: (86)13922805190 -------------------------------------*/
+   6          /* --- Fax: 86-0513-55012956,55012947,55012969 ---------------------*/
+   7          /* --- Tel: 86-0513-55012928,55012929,55012966 ---------------------*/
+   8          /* --- Web: www.GXWMCU.com -----------------------------------------*/
+   9          /* --- QQ:  800003751 ----------------------------------------------*/
+  10          /* If you want to use the program or the program referenced in the  */
+  11          /* article, please specify in which data and procedures from STC    */
+  12          /*------------------------------------------------------------------*/
+  13          
+  14          #include  "adc.h"
+  15          
+  16          
+  17          //========================================================================
+  18          // 函数: void ADC_Inilize(ADC_InitTypeDef *ADCx)
+  19          // 描述: ADC初始化程序.
+  20          // 参数: ADCx: 结构参数,请参考adc.h里的定义.
+  21          // 返回: none.
+  22          // 版本: V1.0, 2012-10-22
+  23          //========================================================================
+  24          void  ADC_Inilize(ADC_InitTypeDef *ADCx)
+  25          {
+  26   1        P1ASF = ADCx->ADC_Px;
+  27   1        ADC_CONTR = (ADC_CONTR & ~ADC_90T) | ADCx->ADC_Speed;
+  28   1        if(ADCx->ADC_Power == ENABLE) ADC_CONTR |= 0x80;
+  29   1        else              ADC_CONTR &= 0x7F;
+  30   1        if(ADCx->ADC_AdjResult == ADC_RES_H2L8) PCON2 |=  (1<<5); //10位AD结果的高2位放ADC_RES的低2位，低8位在ADC
+             -_RESL。
+  31   1        else                  PCON2 &= ~(1<<5); //10位AD结果的高8位放ADC_RES，低2位在ADC_RESL的低2位。
+  32   1        if(ADCx->ADC_Interrupt == ENABLE) EADC = 1;     //中断允许    ENABLE,DISABLE
+  33   1        else                EADC = 0;
+  34   1        if(ADCx->ADC_Polity == PolityHigh)  PADC = 1;   //优先级设置  PolityHigh,PolityLow
+  35   1        else                PADC = 0;
+  36   1      }
+  37          
+  38          
+  39          //========================================================================
+  40          // 函数: void ADC_PowerControl(u8 pwr)
+  41          // 描述: ADC电源控制程序.
+  42          // 参数: pwr: 电源控制,ENABLE或DISABLE.
+  43          // 返回: none.
+  44          // 版本: V1.0, 2012-10-22
+  45          //========================================================================
+  46          void  ADC_PowerControl(u8 pwr)
+  47          {
+  48   1        if(pwr == ENABLE) ADC_CONTR |= 0x80;
+  49   1        else        ADC_CONTR &= 0x7f;
+  50   1      }
+  51          
+  52          //========================================================================
+  53          // 函数: u16  Get_ADC10bitResult(u8 channel)
+C51 COMPILER V9.54   ADC                                                                   11/01/2017 10:19:20 PAGE 2   
+
+  54          // 描述: 查询法读一次ADC结果.
+  55          // 参数: channel: 选择要转换的ADC.
+  56          // 返回: 10位ADC结果.
+  57          // 版本: V1.0, 2012-10-22
+  58          //========================================================================
+  59          u16 Get_ADC10bitResult(u8 channel)  //channel = 0~7
+  60          {
+  61   1        u16 adc;
+  62   1        u8  i;
+  63   1      
+  64   1        if(channel > ADC_CH7) return  1024; //错误,返回1024,调用的程序判断  
+  65   1        ADC_RES = 0;
+  66   1        ADC_RESL = 0;
+  67   1      
+  68   1        ADC_CONTR = (ADC_CONTR & 0xe0) | ADC_START | channel; 
+  69   1        NOP(4);     //对ADC_CONTR操作后要4T之后才能访问
+  70   1      
+  71   1        for(i=0; i<250; i++)    //超时
+  72   1        {
+  73   2          if(ADC_CONTR & ADC_FLAG)
+  74   2          {
+  75   3            ADC_CONTR &= ~ADC_FLAG;
+  76   3            if(PCON2 &  (1<<5))   //10位AD结果的高2位放ADC_RES的低2位，低8位在ADC_RESL。
+  77   3            {
+  78   4              adc = (u16)(ADC_RES & 3);
+  79   4              adc = (adc << 8) | ADC_RESL;
+  80   4            }
+  81   3            else    //10位AD结果的高8位放ADC_RES，低2位在ADC_RESL的低2位。
+  82   3            {
+  83   4              adc = (u16)ADC_RES;
+  84   4              adc = (adc << 2) | (ADC_RESL & 3);
+  85   4            }
+  86   3            return  adc;
+  87   3          }
+  88   2        }
+  89   1        return  1024; //错误,返回1024,调用的程序判断
+  90   1      }
+  91          
+  92          
+  93          //========================================================================
+  94          // 函数: void ADC_int(void) interrupt ADC_VECTOR
+  95          // 描述: ADC中断函数.
+  96          // 参数: none.
+  97          // 返回: none.
+  98          // 版本: V1.0, 2012-10-22
+  99          //========================================================================
+ 100          void ADC_int (void) interrupt ADC_VECTOR
+ 101          {
+ 102   1        ADC_CONTR &= ~ADC_FLAG;
+ 103   1      }
+ 104          
+ 105          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    389    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =      8    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+C51 COMPILER V9.54   ADC                                                                   11/01/2017 10:19:20 PAGE 3   
+
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

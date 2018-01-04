@@ -1,0 +1,5 @@
+"STARTUP.obj",
+"YanMo.obj",
+"Uart.obj" 
+TO "YanMo" Rtx51Tiny 
+PRINT(".\Include\YanMo.m51") RAMSIZE(256) 

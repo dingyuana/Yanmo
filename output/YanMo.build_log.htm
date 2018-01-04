@@ -1,0 +1,71 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: μVision V5.14.2
+Copyright (C) 2015 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: dg Administrator, gsd, LIC=NQZAR-KU459-MVF1R-KCQS7-6JJCF-TD6II
+ 
+Tool Versions:
+Toolchain:       PK51 Prof. Developers Kit  Version: 9.54
+Toolchain Path:  C:\Keil_v5\C51\BIN
+C Compiler:      C51.exe V9.54
+Assembler:       A51.exe V8.02c
+Linker/Locator:  BL51.exe V6.22
+Library Manager: LIB51.exe V4.30.1.0
+Hex Converter:   OH51.exe V2.7.0.0
+CPU DLL:         S8051.DLL V3.100.0.0
+Dialog DLL:      DP51.DLL V2.62.0.1
+Target DLL:      STCMON51.DLL V1, 0, 8, 0
+Dialog DLL:      TP51.DLL V2.58
+ 
+<h2>Project:</h2>
+E:\Dingyuan\研磨机\研磨机 V2.0\YanMo.uvproj
+Project File Date:  11/21/2017
+
+<h2>Output:</h2>
+Build Project 'YanMo' - Target 'Target 1'
+compiling Key.c...
+E:\Dingyuan\研磨机\研磨机 V2.0\Key.c(279): warning C206: 'Display_Time1': missing function-prototype
+E:\Dingyuan\研磨机\研磨机 V2.0\Key.c(447): warning C316: unterminated conditionals
+E:\Dingyuan\研磨机\研磨机 V2.0\Key.c(69): warning C290: missing return value
+linking...
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_UARTSEND?UART
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?KEY_TIME_UP?KEY
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_TIME_NMS?DISPLAY
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_SHOWNUMCHARH?DISPLAY
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_SHOWNUMCHARL?DISPLAY
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_WRCGRAM?DISPLAY
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_SHOWCGCHAR?DISPLAY
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?DISPLAY_ROM_8X16?DISPLAY
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_TIME_RAM_8X16?DISPLAY
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_TIME_RAM_16X32?DISPLAY
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?PRINTF?PRINTF
+    CALLER1: ?PR?INIT?YANMO
+    CALLER2: ?PR?CLOCK?YANMO
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?PRINTF?PRINTF
+    CALLER1: ?PR?CLOCK?YANMO
+    CALLER2: ?PR?MOTO?YANMO
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?PRINTF?PRINTF
+    CALLER1: ?PR?MOTO?YANMO
+    CALLER2: ?PR?KEYREAD?YANMO
+Program Size: data=57.7 xdata=388 code=14122
+creating hex file from ".\output\YanMo"...
+".\output\YanMo" - 0 Error(s), 16 Warning(s).
+</pre>
+</body>
+</html>

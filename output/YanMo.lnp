@@ -1,0 +1,11 @@
+".\output\STARTUP.obj",
+".\output\YanMo.obj",
+".\output\Uart.obj",
+".\output\Key.obj",
+".\output\EEPROM.obj",
+".\output\PWM.obj",
+".\output\Display.obj",
+".\output\counter.obj",
+".\output\PID.obj" 
+TO ".\output\YanMo" Rtx51Tiny 
+PRINT(".\Include\YanMo.m51") RAMSIZE(256) 

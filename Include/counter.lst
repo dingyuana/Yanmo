@@ -1,0 +1,95 @@
+C51 COMPILER V9.00   COUNTER                                                               12/26/2017 17:20:19 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE COUNTER
+OBJECT MODULE PLACED IN .\output\counter.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE counter.c LARGE OPTIMIZE(0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG O
+                    -BJECTEXTEND PRINT(.\Include\counter.lst) OBJECT(.\output\counter.obj)
+
+line level    source
+
+   1          
+   2          #include "SmartM_8051.h"
+   3          
+   4          UINT8  CCWS[4];
+   5          
+   6          VOID Timer3Init(VOID) ;
+   7          
+   8          /****************************************
+   9           定时器3 用于外部计数，测量转速
+  10          *函数名称:Timer3Init
+  11          *输    入:无
+  12          *输    出:无
+  13          *功    能:定时器3初始化,输入口P0.0 
+  14          ******************************************/
+  15          VOID Timer3Init(VOID)   
+  16          {
+  17   1                      UINT16 DS;
+  18   1                      UINT8  DF;;
+  19   1      //              DF=0x31;
+  20   1      //              DS=6553;
+  21   1              
+  22   1      //    UartSendStr(" T4T3M Begin Init 6553!\r\n");
+  23   1          T4T3M |= 0x02;              //定时器3为1T模式
+  24   1          T4T3M |= 0x04;              //定时器3计数器模式
+  25   1                TL3=0x26;
+  26   1                TH3=01;
+  27   1              
+  28   1      //                              sprintf(CCWS, "%u", DS); 
+  29   1      //                              UartSendStr(CCWS);      
+  30   1      //              DS=TH3;
+  31   1      //              DS=(TH3<<8);
+  32   1      //              DS=TL3;//|(TH3<<8);
+  33   1      //                              sprintf(CCWS, "%u", DS); 
+  34   1      //    UartSendStr(" \r\n");
+  35   1      //    UartSendStr(" TL3= ");
+  36   1      //                              UartSendStr(CCWS);      
+  37   1      //              DF=(UINT8)TL3;
+  38   1      //    UartSendStr(" TL3= ");
+  39   1      //                              UartSendByte(TL3);      
+  40   1      //    UartSendStr(" \r\n");
+  41   1                                      
+  42   1      //              DS=DF;//|(DF<<8);//|(TH3<<8);
+  43   1      //                              sprintf(CCWS, "%u", DS); 
+  44   1      //    UartSendStr(" \r\n");
+  45   1      //              UartSendByte(TH0);
+  46   1      //    UartSendStr(" DFDF= ");
+  47   1      //                              UartSendStr(CCWS);      
+  48   1                                      
+  49   1                                      
+  50   1      //              DS=(TH3<<8)|TL3;
+  51   1      //    UartSendStr(" \r\n");
+  52   1      //    UartSendStr(" T4T3M Init Setp 2 !\r\n");
+  53   1      //                              sprintf(CCWS, "%u", DS); 
+  54   1      //                              UartSendStr(CCWS);      
+C51 COMPILER V9.00   COUNTER                                                               12/26/2017 17:20:19 PAGE 2   
+
+  55   1                      IE2 = 0x20;
+  56   1                      
+  57   1      //                              UartSendStr("TL3:");
+  58   1      //                              UartSendStr(CCWS);      
+  59   1      //          TMOD = 0x40;                    //设置定时器为模式0(16位自动重装载)
+  60   1      //    TL1 =0;// T1MS;                     //初始化计时值
+  61   1      //    TH1 =0;// T1MS >> 8;
+  62   1      //    TR1 = 1;  
+  63   1      //    UartSendStr(" \r\n");
+  64   1      //    UartSendStr(" T4T3M Init finish!\r\n");
+  65   1      
+  66   1      }
+*** WARNING C280 IN LINE 17 OF COUNTER.C: 'DS': unreferenced local variable
+*** WARNING C280 IN LINE 18 OF COUNTER.C: 'DF': unreferenced local variable
+*** WARNING C316 IN LINE 66 OF counter.c: unterminated conditionals
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     16    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      7    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  3 WARNING(S),  0 ERROR(S)

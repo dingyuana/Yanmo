@@ -1,0 +1,263 @@
+C51 COMPILER V9.00   COMMON                                                                09/01/2017 11:39:25 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE COMMON
+OBJECT MODULE PLACED IN .\output\Common.obj
+COMPILER INVOKED BY: d:\Keil\C51\BIN\C51.EXE ..\Common\Common.c COMPACT WARNINGLEVEL(0) BROWSE INCDIR(..\Common;..\Inclu
+                    -de) DEBUG OBJECTEXTEND PRINT(.\Common.lst) TABS(2) OBJECT(.\output\Common.obj)
+
+line level    source
+
+   1          #include "8051.h"
+   2          #include "Typedef.h"
+   3          #include <intrins.h>
+   4          #include "Common.h"
+   5          
+   6          
+   7          VOID delay_1us(VOID)  
+   8          {
+   9   1        UINT8 i;
+  10   1      #if FOSC == 33000000UL
+                _nop_();
+                _nop_();
+                _nop_();
+                i = 5;
+                while (--i);
+              #endif
+  17   1      
+  18   1      #if FOSC == 24000000UL
+  19   1        _nop_();
+  20   1        _nop_();
+  21   1        i = 3;
+  22   1        while (--i);
+  23   1      #endif
+  24   1      }
+  25          
+  26          VOID delay_10us(VOID)
+  27          {
+  28   1        UINT8 i;
+  29   1      #if FOSC == 33000000UL
+                i = 80;
+                while (--i);
+              #endif
+  33   1      
+  34   1      #if FOSC == 24000000UL
+  35   1      
+  36   1        NOP();
+  37   1        NOP();
+  38   1        i = 57;
+  39   1        while (--i);
+  40   1      #endif
+  41   1      }
+  42          
+  43          VOID delay_100us(VOID)
+  44          {
+  45   1        UINT8 i, j;
+  46   1      #if FOSC == 33000000UL
+              
+              
+                i = 4;
+                j = 50;
+                do
+                {
+                  while (--j);
+                } while (--i);
+C51 COMPILER V9.00   COMMON                                                                09/01/2017 11:39:25 PAGE 2   
+
+              #endif
+  56   1      
+  57   1      #if FOSC == 24000000UL
+  58   1        i = 3;
+  59   1        j = 82;
+  60   1        do
+  61   1        {
+  62   2          while (--j);
+  63   2        } while (--i);
+  64   1      #endif
+  65   1      }
+  66          
+  67          VOID delay_1ms(VOID)
+  68          {
+  69   1        UINT8 i, j;
+  70   1      #if FOSC == 33000000UL
+              
+              
+                i = 33;
+                j = 22;
+                do
+                {
+                  while (--j);
+                } while (--i);
+              #endif
+  80   1      
+  81   1      #if FOSC == 24000000UL
+  82   1      
+  83   1        i = 24;
+  84   1        j = 85;
+  85   1        do
+  86   1        {
+  87   2          while (--j);
+  88   2        } while (--i);
+  89   1      #endif
+  90   1      }
+  91          
+  92          VOID delay_10ms(VOID)   
+  93          {
+  94   1        UINT8 i, j, k;
+  95   1      #if FOSC == 33000000UL
+              
+              
+                NOP();
+                NOP();
+                
+                i = 2;
+                j = 65;
+                k = 253;
+                do
+                {
+                  do
+                  {
+                    while (--k);
+                  } while (--j);
+                } while (--i);
+              #endif
+ 112   1      
+ 113   1      #if FOSC == 24000000UL
+ 114   1      
+ 115   1        _nop_();
+ 116   1        _nop_();
+C51 COMPILER V9.00   COMMON                                                                09/01/2017 11:39:25 PAGE 3   
+
+ 117   1        i = 1;
+ 118   1        j = 234;
+ 119   1        k = 113;
+ 120   1        do
+ 121   1        {
+ 122   2          do
+ 123   2          {
+ 124   3            while (--k);
+ 125   3          } while (--j);
+ 126   2        } while (--i);
+ 127   1      #endif
+ 128   1      }
+ 129          
+ 130          VOID delay_100ms(VOID)  
+ 131          {
+ 132   1        UINT8 i, j, k;
+ 133   1      #if FOSC == 33000000UL
+              
+              
+                NOP();
+                NOP();
+                i = 13;
+                j = 139;
+                k = 12;
+                do
+                {
+                  do
+                  {
+                    while (--k);
+                  } while (--j);
+                } while (--i);
+              #endif
+ 149   1      
+ 150   1      #if FOSC == 24000000UL
+ 151   1        _nop_();
+ 152   1        _nop_();
+ 153   1        i = 10;
+ 154   1        j = 31;
+ 155   1        k = 147;
+ 156   1        do
+ 157   1        {
+ 158   2          do
+ 159   2          {
+ 160   3            while (--k);
+ 161   3          } while (--j);
+ 162   2        } while (--i);
+ 163   1      #endif
+ 164   1      }
+ 165          
+ 166          /******************************************************************
+ 167          *函数名称:Delayus
+ 168          *输    入:t 延时时间
+ 169          *输    出:无
+ 170          *说    明:微秒级延时 最低为10us
+ 171          *******************************************************************/
+ 172          VOID Delayus(UINT16 t)
+ 173          {
+ 174   1         UINT8 t0=t/100;
+ 175   1         UINT8 t1=t%100/10;
+ 176   1      
+ 177   1         while(t0)
+ 178   1         {
+C51 COMPILER V9.00   COMMON                                                                09/01/2017 11:39:25 PAGE 4   
+
+ 179   2             delay_100us();
+ 180   2             
+ 181   2             if(t0)t0--;
+ 182   2             else  break;
+ 183   2         }
+ 184   1         
+ 185   1         while(t1)
+ 186   1         {
+ 187   2             delay_10us();
+ 188   2             
+ 189   2             if(t1)t1--;
+ 190   2             else  break;
+ 191   2         }   
+ 192   1      
+ 193   1      
+ 194   1      }
+ 195          /******************************************************************
+ 196          *函数名称:Delayms
+ 197          *输    入:t 延时时间
+ 198          *输    出:无
+ 199          *说    明:毫秒级延时
+ 200          *******************************************************************/
+ 201          VOID Delayms(UINT16 t)
+ 202          {
+ 203   1         UINT8 t0=t/100;
+ 204   1         UINT8 t1=t%100/10;
+ 205   1         UINT8 t2=t%10;
+ 206   1         
+ 207   1         while(t0)
+ 208   1         {
+ 209   2             delay_100ms();
+ 210   2             
+ 211   2             if(t0)t0--;
+ 212   2             else  break;
+ 213   2         }
+ 214   1         
+ 215   1         while(t1)
+ 216   1         {
+ 217   2             delay_10ms();
+ 218   2             
+ 219   2             if(t1)t1--;
+ 220   2             else  break;
+ 221   2         }   
+ 222   1      
+ 223   1         while(t2)
+ 224   1         {
+ 225   2             delay_1ms();
+ 226   2             
+ 227   2             if(t2)t2--;
+ 228   2             else  break;
+ 229   2         }   
+ 230   1      }
+ 231          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    237    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----       4
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.00   COMMON                                                                09/01/2017 11:39:25 PAGE 5   
+
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

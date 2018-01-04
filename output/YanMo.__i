@@ -1,0 +1,1 @@
+"YanMo.C" LARGE OPTIMIZE (0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJECTEXTEND PRINT(.\Include\YanMo.lst) OBJECT(.\output\YanMo.obj)

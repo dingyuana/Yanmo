@@ -1,0 +1,1 @@
+"Key.c" LARGE OPTIMIZE (0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJECTEXTEND PRINT(.\Include\Key.lst) OBJECT(.\output\Key.obj)

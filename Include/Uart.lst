@@ -1,0 +1,80 @@
+C51 COMPILER V9.00   UART                                                                  12/26/2017 17:20:19 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE UART
+OBJECT MODULE PLACED IN .\output\Uart.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Uart.c LARGE OPTIMIZE(0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJE
+                    -CTEXTEND PRINT(.\Include\Uart.lst) OBJECT(.\output\Uart.obj)
+
+line level    source
+
+   1          #include "SmartM_8051.h"
+   2          
+   3          /****************************************
+   4          *函数名称:UartInit
+   5          *输    入:无
+   6          *输    出:无
+   7          *功    能:串口初始化
+   8          ******************************************/
+   9          VOID UartInit(UINT32 usBaud)        //定义串口初始化函数
+  10          { 
+  11   1          P_SW1 &=~(S1_S0)|(S1_S1);       //串口1在P3.0、P3.1
+  12   1                      
+  13   1          SCON = 0x50;                    //8位可变波特率
+  14   1          T2L = (65536 - (FOSC/4/usBaud));   //设置波特率重装值
+  15   1          T2H = (65536 - (FOSC/4/usBaud))>>8;
+  16   1          AUXR = 0x14;                    //T2为1T模式, 并启动定时器2
+  17   1          AUXR |= 0x01;                   //选择定时器2为串口1的波特率发生器
+  18   1      }
+  19          /****************************************
+  20          *函数名称:UartSendByte
+  21          *输    入:d 要发送的字节
+  22          *输    出:无
+  23          *功    能:串口发送单字节
+  24          ******************************************/
+  25          VOID UartSendByte(UINT8 d)//串口发送单字节函数
+  26          {
+  27   1                              SBUF=d;                 //缓冲区装载要发送的字节
+  28   1                              while(TI==0);           //等待发送完毕,TI标志位会置1
+  29   1                                      TI=0;                   //清零发送完成标志位
+  30   1      }
+  31          /****************************************
+  32          *函数名称:UartSendStr
+  33          *输    入:pStr -字符串
+  34          *输    出:无
+  35          *功    能:串口打印字符串
+  36          ******************************************/
+  37          VOID UartSendStr(INT8 *pStr)
+  38          {
+  39   1           while(*pStr && pStr)
+  40   1                       {
+  41   2                          UartSendByte(*pStr++);
+  42   2                       
+  43   2                       }
+  44   1      }
+  45          
+  46          VOID UartSend(UINT8 *pBuf,UINT8 NumOfBytes)
+  47          {
+  48   1           while(NumOfBytes--)
+  49   1                       {
+  50   2                           UartSendByte(*pBuf++);
+  51   2                       }
+  52   1       
+  53   1      }
+*** WARNING C316 IN LINE 53 OF Uart.c: unterminated conditionals
+C51 COMPILER V9.00   UART                                                                  12/26/2017 17:20:19 PAGE 2   
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    244    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     12    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

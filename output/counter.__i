@@ -1,0 +1,1 @@
+"counter.c" LARGE OPTIMIZE (0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJECTEXTEND PRINT(.\Include\counter.lst) OBJECT(.\output\counter.obj)

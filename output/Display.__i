@@ -1,0 +1,1 @@
+"Display.c" LARGE OPTIMIZE (0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJECTEXTEND PRINT(.\Include\Display.lst) OBJECT(.\output\Display.obj)

@@ -1,0 +1,401 @@
+C51 COMPILER V9.00   PWM                                                                   12/26/2017 17:23:43 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE PWM
+OBJECT MODULE PLACED IN .\output\PWM.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE PWM.c LARGE OPTIMIZE(0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJEC
+                    -TEXTEND PRINT(.\Include\PWM.lst) OBJECT(.\output\PWM.obj)
+
+line level    source
+
+   1          #include "SmartM_8051.h"
+   2          
+   3          
+   4          VOID PWMInit(UINT8 ucPwmClock);
+   5          VOID Pwm_Run();
+   6          VOID Pwm_Stop();
+   7          VOID Pwm_Start();
+   8          void BEEP(UINT8 cycle,UINT8 beep);
+   9          extern void Display_Time1();
+  10          #define CCP_S0 0x10                 //P_SW1.4
+  11          #define CCP_S1 0x20                 //P_SW1.5
+  12          
+  13          #define Speed_Max  1750
+  14          #define Speed_Min  500
+  15          #define Duty_Max  65535
+  16          #define Duty_Min        1000
+  17          //#define SS                    (Duty_Max-Duty_Min)//(Speed_Max/10-Speed_Min/10)
+  18          //#define Duty      (MOTOR_SPEED-Speed_Min)/10*SS               ///注意运算顺序 防止溢出 +Duty_Min
+  19          
+  20          
+  21          //UINT8 g_ucPwmValue=0;
+  22          UINT16 ddDuty,Duty,SS;
+  23          UINT32 moto_real_time;
+  24          
+  25          
+  26          //计数，测量速度用变量
+  27          UINT16 cnt;                           //存储PCA计时溢出次数
+  28          UINT32 count0;                       //记录上一次的捕获值
+  29          UINT32 count1;                       //记录本次的捕获值
+  30          UINT32 length;                       //存储捕获到的脉冲宽度(count1 - count0)
+  31          UINT32 speed_temp;                                                                              //电机实测速度
+  32          
+  33          //电机启动参数 start_step总步长，
+  34          UINT8 start_count=0,start_step=30;
+  35          UINT8 Bell_count=0;
+  36          
+  37          UINT8  CC[6];
+  38          extern UINT8  MOTO_STATE;
+  39          extern UINT16 RUN_TIME,MOTOR_SPEED;
+  40          extern void WaitNms(UINT16 n);
+  41          /****************************************
+  42          *函数名称:BEEP
+  43          *输    入:蜂鸣器报警
+  44          *输    出:无
+  45          *功    能:
+  46          ******************************************/
+  47          void BEEP(UINT8 cycle,UINT8 beep)
+  48          {
+  49   1                      while(cycle>0)
+  50   1                      {
+  51   2                                      Bell_count=0;
+  52   2                                      while(Bell_count<beep)
+  53   2                                      {
+  54   3      //                                              Bell_Run;
+C51 COMPILER V9.00   PWM                                                                   12/26/2017 17:23:43 PAGE 2   
+
+  55   3                                                      BELL=1; 
+  56   3                                                      WaitNms(10);
+  57   3                                                      Bell_count++;
+  58   3                                      }
+  59   2                                      Bell_count=0;
+  60   2                                      while(Bell_count<beep)
+  61   2                                      {
+  62   3      //                                              Bell_Stop;
+  63   3                                                      BELL=0;         
+  64   3                                                      WaitNms(10);    
+  65   3                                                      Bell_count++;
+  66   3                                      }
+  67   2                                      cycle--;
+  68   2                      }
+  69   1      }
+  70          /****************************************
+  71          *函数名称:PWMClock
+  72          *输    入:时钟
+  73          *输    出:无
+  74          *功    能:初始化时钟参数，指定PWM输出端口
+  75          ******************************************/
+  76          VOID PWMInit(UINT8 ucPwmClock)
+  77          {
+  78   1           //CCP_S1=0 CCP_S0=1 CCP0输出到P3.5
+  79   1      //               P_SW1|=(1<<4);
+  80   1      //               P_SW1&=~(1<<5);
+  81   1      
+  82   1      //     P3M0|=1<<5;
+  83   1      //               P3M1&=~(1<<5);
+  84   1              
+  85   1              //PWM输出到P1.1
+  86   1          ACC = P_SW1;
+  87   1          ACC &= ~(CCP_S0 | CCP_S1);      //CCP_S0=0 CCP_S1=0
+  88   1          P_SW1 = ACC;                    //(P1.2/ECI, P1.1/CCP0, P1.0/CCP1, P3.7/CCP2)
+  89   1          
+  90   1      //  ACC = P_SW1;
+  91   1      //  ACC &= ~(CCP_S0 | CCP_S1);      //CCP_S0=1 CCP_S1=0
+  92   1      //  ACC |= CCP_S0;                  //(P3.4/ECI_2, P3.5/CCP0_2, P3.6/CCP1_2, P3.7/CCP2_2)
+  93   1      //  P_SW1 = ACC;  
+  94   1      //  
+  95   1      //  ACC = P_SW1;
+  96   1      //  ACC &= ~(CCP_S0 | CCP_S1);      //CCP_S0=0 CCP_S1=1
+  97   1      //  ACC |= CCP_S1;                  //(P2.4/ECI_3, P2.5/CCP0_3, P2.6/CCP1_3, P2.7/CCP2_3)
+  98   1      //  P_SW1 = ACC;  
+  99   1      //              PCA_IDLE_OFF();
+ 100   1      
+ 101   1           CMOD=ucPwmClock;                   // 计数脉冲源=sysclk, 0X00 不分频 允许PCA定时器溢出中断
+ 102   1                       //PCA的16位计数器
+ 103   1                       CL=0;
+ 104   1                       CH=0;
+ 105   1                       
+ 106   1                       SS=(Duty_Max-Duty_Min)/(Speed_Max/10-Speed_Min/10);
+ 107   1      }
+ 108          
+ 109          VOID PWMStart(UINT8 ucPwmSel,UINT8 ucPwmMode,UINT16 ucDuty)
+ 110          {
+ 111   1           UINT16 usCMR=0;
+ 112   1      //               float  fDuty;
+ 113   1                       //              fDuty=65536*fDuty;
+ 114   1      //               
+ 115   1      //               UINT16 DATA_MAX=65535,DATA_MIN=6555;
+ 116   1      //               UINT16 SPEED_MAX=1750,SPEED_MIN=500;
+C51 COMPILER V9.00   PWM                                                                   12/26/2017 17:23:43 PAGE 3   
+
+ 117   1      //               
+ 118   1      //               A=(DATA_MAX-DATA_MIN)/(SPEED_MAX-SPEED_MIN);
+ 119   1      //               B=SPEED_MAX*A-DATA_MAX;
+ 120   1      //               fDuty=A*ucDuty-B;
+ 121   1                       
+ 122   1      //               fDuty=(float)ucDuty/100;
+ 123   1      //               
+ 124   1      //               fDuty=65536*fDuty;
+ 125   1      //               
+ 126   1      //               usCMR=(UINT16)fDuty;
+ 127   1      //              原输入值为百分比，改为数值 ，最大65536   
+ 128   1              
+ 129   1                       usCMR=65535-ucDuty;
+ 130   1           if(ucPwmSel == PWM_SEL_0)
+ 131   1                       {
+ 132   2                          CCAP0L=(UINT8) usCMR;
+ 133   2                                      CCAP0H=(UINT8)(usCMR>>8);
+ 134   2                                      
+ 135   2                                      switch(ucPwmMode)
+ 136   2                          {
+ 137   3                                       case PWM_MODE_0:CCAPM0=0x42;                   // 模块0工作在PWM工作模式
+ 138   3                                              CCAPM1 = 0x21;  //PCA模块1为16位捕获模式(上升沿捕获,可测从高电平开始的整个周期),且产生捕获中断                                  
+             -         
+ 139   3                                              PCA_PWM2 = 0x40;                //PCA模块2工作于6位PWM
+ 140   3                                              CCAP2H = CCAP2L = 0x20;         //PWM2的占空比为50% ((40H-20H)/40H)
+ 141   3                                              CCAPM2 = 0x42;                  //PCA模块2为6位PWM模式
+ 142   3      
+ 143   3                                            break;
+ 144   3                                       case PWM_MODE_1:CCAPM0=0x53;
+ 145   3                                            break;            
+ 146   3                                       case PWM_MODE_2:CCAPM0=0x63;
+ 147   3                                            break;
+ 148   3                                       case PWM_MODE_3:CCAPM0=0x33;
+ 149   3                                            break;                    
+ 150   3               default:break;                                                                                          
+ 151   3                       
+ 152   3                          }
+ 153   2                       }
+ 154   1                       
+ 155   1      //     if(ucPwmSel == PWM_SEL_1)
+ 156   1      //               {
+ 157   1      //                  CCAP1L=(UINT8) usCMR;
+ 158   1      //                              CCAP1H=(UINT8)(usCMR>>8);
+ 159   1      //                              
+ 160   1      //                              switch(ucPwmMode)
+ 161   1      //                  {
+ 162   1      //                               case PWM_MODE_0:CCAPM1=0x42;
+ 163   1      //                                               break;
+ 164   1      //                               case PWM_MODE_1:CCAPM1=0x53;
+ 165   1      //                                               break;         
+ 166   1      //                               case PWM_MODE_2:CCAPM1=0x63;
+ 167   1      //                                               break;
+ 168   1      //                               case PWM_MODE_3:CCAPM1=0x33;
+ 169   1      //                                               break;                 
+ 170   1      //         default:break;                                                                                                
+ 171   1      //               
+ 172   1      //                  }                           
+ 173   1      //               }
+ 174   1                       //启动计数器
+ 175   1                       CR=1;
+ 176   1      }
+ 177          
+C51 COMPILER V9.00   PWM                                                                   12/26/2017 17:23:43 PAGE 4   
+
+ 178          
+ 179          /****************************************
+ 180          *函数名称:Pwm_Stop
+ 181          *输    入:无
+ 182          *输    出:无
+ 183          *功    能:Lcd屏获取触摸位置
+ 184          ******************************************/
+ 185          VOID Pwm_Stop()
+ 186          {
+ 187   1               MOTOR_DISABLE  ;       
+ 188   1               CR=0;                          
+ 189   1      
+ 190   1      //                      UartSendStr("Pwm_Stop"); 
+ 191   1      }
+ 192          
+ 193          /****************************************
+ 194          *函数名称:Pwm_Start
+ 195          *输    入:无
+ 196          *输    出:无
+ 197          *功    能:启动电机  按预估PWM值逐步启动，start_step步长
+ 198          ******************************************/
+ 199          VOID Pwm_Start()
+ 200          {
+ 201   1                      MOTOR_ENABLE ;                  //使能电机
+ 202   1                      if(start_count<1)
+ 203   1                      {
+ 204   2                                      BEEP(2,50);             
+ 205   2                      }
+ 206   1              
+ 207   1                if(start_count<start_step)
+ 208   1                      {
+ 209   2      //                              ddDuty=(MOTOR_SPEED-Speed_Min)/10*start_count/start_step*SS+Duty_Min;///注意运算顺序 防止溢出
+ 210   2                          Duty=(MOTOR_SPEED-Speed_Min)/10*SS; ///注意运算顺序 防止溢出 +Duty_Min               
+ 211   2                              ddDuty=Duty/start_step*start_count+Duty_Min;
+ 212   2                              PWMStart(PWM_SEL_0,PWM_MODE_0,ddDuty);          //PCA模块0为8位PWM模式
+ 213   2                              start_count++;
+ 214   2      //                      UartSendByte(0xBB);
+ 215   2      //                      UartSendByte(start_count);
+ 216   2      //                      UartSendByte(Duty>>8);
+ 217   2      //                      UartSendByte(Duty);
+ 218   2      //                      UartSendByte(ddDuty>>8);
+ 219   2      //                      UartSendByte(ddDuty);
+ 220   2                              
+ 221   2      //                              sprintf(CC, "%d", MOTOR_SPEED); 
+ 222   2      //                              UartSendStr("MOTOR_SPEED=");//
+ 223   2      //                              UartSendStr(CC); 
+ 224   2      //                              sprintf(CC, "%u", ddDuty); 
+ 225   2      //                              UartSendStr("Duty=");//
+ 226   2      //                              UartSendStr(CC); 
+ 227   2                      }else{
+ 228   2                                      start_count=0;
+ 229   2                                      MOTO_STATE=MOTO_RUN;
+ 230   2                                      UartSendStr("MOTO_RUN!!!");
+ 231   2                      }
+ 232   1                      
+ 233   1      //                      PWMStart(PWM_SEL_1,PWM_MODE_0,ddDuty);          //PCA模块1为8位PWM模式
+ 234   1      //                      UartSendStr("Run"); 
+ 235   1      }
+ 236          /****************************************
+ 237          *函数名称:Pwm_Run
+ 238          *输    入:无
+ 239          *输    出:无
+C51 COMPILER V9.00   PWM                                                                   12/26/2017 17:23:43 PAGE 5   
+
+ 240          *功    能:
+ 241          ******************************************/
+ 242          VOID Pwm_Run()
+ 243          {
+ 244   1                                      UartSendByte(0xEE);
+ 245   1                                      UartSendByte(length>>24);
+ 246   1                                      UartSendByte(length>>16);
+ 247   1                                      UartSendByte(length>>8);
+ 248   1                                      UartSendByte(length);
+ 249   1                      //测量当前电机速度
+ 250   1                              if(length>0x3F000)
+ 251   1                              {
+ 252   2                                      UartSendStr("Moto Work Error");
+ 253   2                                      Pwm_Stop();
+ 254   2                                      MOTO_STATE=MOTO_ERROR;
+ 255   2                                      Display_Time1();
+ 256   2                              }else{
+ 257   2      //                                              
+ 258   2      //                              UartSendByte(0xFF);
+ 259   2      //                              UartSendByte(length>>16);
+ 260   2      //                              UartSendByte(length>>8);
+ 261   2      //                              UartSendByte(length);
+ 262   2      
+ 263   2                                      
+ 264   2      //                              UartSendByte(moto_real_time>>16);
+ 265   2      //                              UartSendByte(moto_real_time>>8);
+ 266   2      //                              UartSendByte(moto_real_time);
+ 267   2                                      
+ 268   2                                              //转换为单片机时长（12个晶振周期为一个单片机周期）*
+ 269   2                                              moto_real_time=length/12;                               //主频24M，length脉冲宽度，计数个数     
+ 270   2                                              //计算电机工作周期时长，单位*1000转换为毫秒，*1000秒，*60分             
+ 271   2                                              //1000*1000*60/600
+ 272   2                                              speed_temp=60000000/moto_real_time;     
+ 273   2                                              //speed_temp=100000/moto_real_time;                             //  除编码器精度600，转换成速度/分
+ 274   2      //                                      UartSendByte(speed_temp);
+ 275   2      //                                      UartSendByte(speed_temp>>8);
+ 276   2                              
+ 277   2      //                                      MOTOR_SPEED=speed_temp;                                                                 //电机速度送出到液晶，调试用    
+ 278   2      //                                Display_Time1();
+ 279   2                                              
+ 280   2                                              
+ 281   2                                      //速度误差大于 重新调整
+ 282   2                                              if(abs(MOTOR_SPEED-speed_temp)>5)
+ 283   2                                              {
+ 284   3                                                                      /* PWM输出调整 */
+ 285   3                                                                      if(MOTOR_SPEED>speed_temp)
+ 286   3                                                                      {
+ 287   4                                                                                      ddDuty=ddDuty-300;
+ 288   4      //                                                                              UartSendByte(0xEE);
+ 289   4                                                                      }else{
+ 290   4                                                                                      ddDuty=ddDuty+300;
+ 291   4      //                                                                              UartSendByte(0xDD);
+ 292   4                                                                      }
+ 293   3      //                                                                              UartSendByte(ddDuty>>8);
+ 294   3      //                                                                              UartSendByte(ddDuty);
+ 295   3                                                      
+ 296   3                                                                      if((ddDuty>Duty_Max)||(ddDuty<Duty_Min))
+ 297   3                                                                      {
+ 298   4                                                                                      Pwm_Stop();
+ 299   4                                                                                      MOTO_STATE=MOTO_ERROR;
+ 300   4                                                                                      UartSendStr("PWM MOTO_ERROR!");
+ 301   4                                                                                      Display_Time1();
+C51 COMPILER V9.00   PWM                                                                   12/26/2017 17:23:43 PAGE 6   
+
+ 302   4                                                                      }else{
+ 303   4                                                                               PWMStart(PWM_SEL_0,PWM_MODE_0,ddDuty);         //PCA模块0为8位PWM模式
+ 304   4                                                                      }
+ 305   3                                              }
+ 306   2                              }
+ 307   1              
+ 308   1                              
+ 309   1      //              sprintf(CC, "%d", MOTOR_SPEED); 
+ 310   1      //              UartSendStr("MOTOR_SPEED=");//
+ 311   1      //              UartSendStr(CC); 
+ 312   1      //              sprintf(CC, "%u", ddDuty); 
+ 313   1      //              UartSendStr("Duty=");//
+ 314   1      //              UartSendStr(CC); 
+ 315   1                      
+ 316   1      //                      PWMStart(PWM_SEL_1,PWM_MODE_0,ddDuty);          //PCA模块1为8位PWM模式
+ 317   1      //                      UartSendStr("Run"); 
+ 318   1      }
+ 319          
+ 320          //*******************************//
+ 321          //           中断服务            //
+ 322          //*******************************//
+ 323          VOID PWM_IRQHandler(VOID) interrupt 7
+ 324          {
+ 325   1          if(CCF0)
+ 326   1                      {
+ 327   2                         CCF0   = 0; 
+ 328   2                      }
+ 329   1      
+ 330   1          if (CCF1)
+ 331   1          {
+ 332   2      //                              SendData(0x11);
+ 333   2      //                              SendData(0x22);
+ 334   2              CCF1 = 0;
+ 335   2              if (CF && ((CCAP1H & 0x80) == 0))
+ 336   2              {
+ 337   3                  CF = 0;
+ 338   3                  cnt++;
+ 339   3              }
+ 340   2              count0 = count1;            //备份上一次的捕获值
+ 341   2              ((BYTE *)&count1)[3] = CCAP1L;  //保存本次的捕获值
+ 342   2              ((BYTE *)&count1)[2] = CCAP1H;
+ 343   2              ((BYTE *)&count1)[1] = cnt;
+ 344   2              ((BYTE *)&count1)[0] = 0;
+ 345   2              length = count1 - count0;   //计算两次捕获的差值,即得到时间长度
+ 346   2              ((BYTE *)&length)[0] = 0;
+ 347   2                                      
+ 348   2      
+ 349   2      //                              UartSendByte(0x00);     
+ 350   2      //                              UartSendByte(cnt);
+ 351   2      //                                      UartSendByte(CCAP1H);   
+ 352   2      //                                      UartSendByte(CCAP1L);
+ 353   2      //                              UartSendByte(length>>16);
+ 354   2      //                              UartSendByte(length>>8);
+ 355   2      //                              UartSendByte(length);
+ 356   2      
+ 357   2          }
+ 358   1          if (CF)
+ 359   1          {
+ 360   2              CF = 0;
+ 361   2              cnt++;                      //PCA计时溢出次数+1
+ 362   2          }
+ 363   1      }
+C51 COMPILER V9.00   PWM                                                                   12/26/2017 17:23:43 PAGE 7   
+
+*** WARNING C316 IN LINE 363 OF PWM.c: unterminated conditionals
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1055    ----
+   CONSTANT SIZE    =     44    ----
+   XDATA SIZE       =     46    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

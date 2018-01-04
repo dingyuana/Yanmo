@@ -1,0 +1,11 @@
+".\output\main.obj",
+".\output\Common.obj",
+".\output\STARTUP.obj",
+".\output\EEPROM.obj",
+".\output\Uart.obj",
+".\output\LCD.obj",
+".\output\Spi.obj",
+".\output\Flash.obj",
+".\output\Led.obj" 
+TO ".\output\SmartM" 
+PRINT(".\SmartM.m51") RAMSIZE(256) 

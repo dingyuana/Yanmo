@@ -1,0 +1,1099 @@
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE DISPLAY
+OBJECT MODULE PLACED IN .\output\Display.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Display.c LARGE OPTIMIZE(0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG O
+                    -BJECTEXTEND PRINT(.\Include\Display.lst) OBJECT(.\output\Display.obj)
+
+line level    source
+
+   1          
+   2          
+   3          #include "SmartM_8051.h"
+   4          #include <rtx51tny.h>                 /* RTX-51 tiny functions & defines      */
+   5          
+   6          extern UINT8  MOTO_STATE;
+   7          extern UINT16 RUN_TIME,MOTOR_SPEED, RUN_TIME_TEMP;
+   8          
+   9          void Diaplay_Init();
+  10          void Display_Time1();
+  11          void Diaplay_SUB();
+  12          void WaitNms(UINT16 n);
+  13          
+  14          //sbit PSB=P2^0;//并口时，PSB=1;串口时，PSB=0
+  15          //sbit REST=P2^1;
+  16          //sbit E2=P2^2;                 //串口为时钟SCLK
+  17          //sbit E1=P2^3;                 //串口为时钟SCLK
+  18          //sbit RS=P2^4;                 //串口时为CS
+  19          //sbit RW=P2^5;                 //串口为SID
+  20          //sbit stop=P3^2;
+  21          
+  22          
+  23          typedef unsigned int Uint;
+  24          typedef unsigned char Uchar;
+  25          
+  26          
+  27          UINT8 Dis_Speed_Data[]="1750";
+  28          UINT8 Dis_Time_Data_H[2]="15";
+  29          UINT8 Dis_Time_Data_L[3]="32";
+  30          
+  31          
+  32          Uchar m1,num,ii,z,z1,d,d1,s,s1,s10,s100;
+  33          Uchar code  num_8x16[11][16];//宋体12
+  34          Uchar code  num_16x32[11][62];//DS-Digital24
+  35          Uchar code  num_24x48[11][144];//宋体36
+  36          
+  37          //这个是在串口时指令和数据之间的延时
+  38          
+  39          void delay10US(Uchar x)
+  40          {
+  41   1          Uchar k;
+  42   1                      for(k=0;k<x;k++);
+  43   1       }
+  44          /**/
+  45          const Uchar delay=250;  //延时时间常数
+  46          static void Wait1ms(void)//延迟1 ms
+  47          {
+  48   1                      Uchar cnt=0;
+  49   1                      while (cnt<delay) cnt++;
+  50   1      }
+  51          //延迟n ms 
+  52          void WaitNms(Uint n)
+  53          {
+  54   1          Uint i;
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 2   
+
+  55   1          for(i=1;i<=n;i++)
+  56   1              Wait1ms();
+  57   1      }
+  58          
+  59          void time_nms(Uint x)//0.5ms
+  60          {
+  61   1              Uchar j;
+  62   1       while(x--)
+  63   1        {for(j=0;j<50;j++)
+  64   2          {;}
+  65   2        }
+  66   1      }
+  67          
+  68          
+  69          /////////////////////////////////////////////////////////////////////////////////
+  70          //以下是串口时开的读写时序
+  71          
+  72          
+  73          void SendByteLCDH(Uchar WLCDData)
+  74          {
+  75   1               Uchar i;
+  76   1               for(i=0;i<8;i++)
+  77   1               {
+  78   2                               if((WLCDData<<i)&0x80)RW=1;
+  79   2                               else RW=0;
+  80   2                               E1=0; 
+  81   2                               E1=1 ;
+  82   2               }
+  83   1      }
+  84          
+  85          
+  86           SPIWH(Uchar Wdata,Uchar WRS)
+  87           {
+  88   1                       SendByteLCDH(0xf8+(WRS<<1));//寄存器选择WRS
+  89   1                       SendByteLCDH(Wdata&0xf0);
+  90   1                       SendByteLCDH((Wdata<<4)&0xf0);
+  91   1       }
+  92           
+  93          
+  94          void WRCommandH(Uchar CMD)
+  95          {
+  96   1                              RS=0;
+  97   1                              RS=1;
+  98   1                              SPIWH(CMD,0);
+  99   1                              delay10US(90);//89S52来模拟串行通信,所以,加上89S52的延时,
+ 100   1      }
+ 101          
+ 102          
+ 103          
+ 104          void WRDataH(Uchar Data)
+ 105          { 
+ 106   1        RS=0;
+ 107   1        RS=1;
+ 108   1        SPIWH(Data,1);
+ 109   1      
+ 110   1      }
+ 111          
+ 112          
+ 113          void SendByteLCDL(Uchar WLCDData)
+ 114          {
+ 115   1               Uchar i;
+ 116   1               for(i=0;i<8;i++)
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 3   
+
+ 117   1               {
+ 118   2                               if((WLCDData<<i)&0x80)RW=1;
+ 119   2                               else RW=0;
+ 120   2                               E2=0; 
+ 121   2                               E2=1 ;
+ 122   2               }
+ 123   1      }
+ 124          
+ 125           
+ 126           SPIWL(Uchar Wdata,Uchar WRS)
+ 127           {
+ 128   1                               SendByteLCDL(0xf8+(WRS<<1));
+ 129   1                               SendByteLCDL(Wdata&0xf0);
+ 130   1                               SendByteLCDL((Wdata<<4)&0xf0);
+ 131   1       }
+ 132          
+ 133           
+ 134          void WRCommandL(Uchar CMD)
+ 135          {
+ 136   1                              RS=0;
+ 137   1                              RS=1;
+ 138   1                              SPIWL(CMD,0);
+ 139   1                              delay10US(90);//89S52来模拟串行通信,所以,加上89S52的延时,
+ 140   1      }
+ 141          
+ 142          
+ 143          
+ 144          
+ 145          void WRDataL(Uchar Data)
+ 146          { 
+ 147   1        RS=0;
+ 148   1        RS=1;
+ 149   1        SPIWL(Data,1);
+ 150   1      
+ 151   1      }
+ 152          
+ 153          
+ 154          
+ 155          void ShowNUMCharH(Uchar addr,Uchar i,Uchar count)
+ 156          {
+ 157   1           Uchar j;
+ 158   1                              for(j=0;j<count;)
+ 159   1                              {       
+ 160   2                                              WRCommandH(addr);       //设定DDRAM地址
+ 161   2                                              WRDataH(i+j);//必为两个16*8位字符拼成一个16*16才能显示
+ 162   2                                              j++;
+ 163   2                                              WRDataH(i+j);
+ 164   2                                              addr++;
+ 165   2                                              j++;
+ 166   2                              }               
+ 167   1      }
+ 168          //下半屏显示连续字串(半宽字符)
+ 169          void ShowNUMCharL(Uchar addr,Uchar i,Uchar count)
+ 170          {
+ 171   1           Uchar j;
+ 172   1                              for(j=0;j<count;)
+ 173   1                              {       
+ 174   2                                              WRCommandL(addr);       //设定DDRAM地址
+ 175   2                                              WRDataL(i+j);
+ 176   2                                              j++;
+ 177   2                                              WRDataL(i+j);
+ 178   2                                              addr++;
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 4   
+
+ 179   2                                              j++;
+ 180   2                              }               
+ 181   1      }
+ 182          
+ 183          void WRCGRAM(Uchar data1,Uchar data2,Uchar addr)
+ 184          {     
+ 185   1            Uchar i;
+ 186   1            for(i=0;i<16;)
+ 187   1                              {
+ 188   2                                              WRCommandH(addr+i); WRCommandL(addr+i);         //设定CGRAM地址
+ 189   2                                              WRDataH(data1); WRDataL(data1);
+ 190   2                                              WRDataH(data1); WRDataL(data1);
+ 191   2                                              i++;
+ 192   2                                              WRCommandH(addr+i);  WRCommandL(addr+i);        //设定CGRAM地址
+ 193   2                                              WRDataH(data2); WRDataL(data2);
+ 194   2                                              WRDataH(data2); WRDataL(data2);
+ 195   2                                              i++;
+ 196   2                              }  
+ 197   1      }
+ 198          
+ 199          
+ 200          void ShowCGChar(Uchar addr,Uchar i)
+ 201          {
+ 202   1           Uchar j;
+ 203   1              for(j=0;j<0x20;)
+ 204   1              {       
+ 205   2                  WRCommandH(addr+j); //设定DDRAM地址
+ 206   2                  WRCommandL(addr+j); //设定DDRAM地址
+ 207   2                              WRDataL(0x00);
+ 208   2                  WRDataL(i);         
+ 209   2                              WRDataH(0x00);//字符地址低八位
+ 210   2                  WRDataH(i);//字符地址高八位
+ 211   2                              j++;
+ 212   2              }               
+ 213   1      }
+ 214          
+ 215          /****************************************
+ 216          *函数名称:reg_h
+ 217          *输    入:x：起始地址：80 81 82...9E
+ 218                                                  y:纵向向下偏移点数
+ 219                                                  x2:横向向向重复次数（隔一个反白一次）
+ 220                                                  y2:y轴方向上点数 16 ，32
+ 221                                                  d1,d2:数据内容，0x00 0x00洗白，0xff,0x00 反白，0xff 0xff全黑
+ 222          *输    出:无
+ 223          *功    能:上半屏刷点阵
+ 224          ******************************************/
+ 225          
+ 226          void reg_h(Uchar x,Uchar y,Uchar x2,Uchar y2,Uchar d1,Uchar d2 )
+ 227          {    
+ 228   1                 Uchar j,i;       
+ 229   1                 WRCommandH(0x34);                    //去扩展指令寄存器
+ 230   1                 WRCommandH(0x36);                    //打开绘图功能
+ 231   1                 for(j=0;j<y2;j++)                            //2行   画两横上边框
+ 232   1                        {   
+ 233   2                                 WRCommandH(0x80+y+j);  //Y总坐标,即第几行
+ 234   2                                 WRCommandH(x);       //X坐标，即横数第几个字节开始写起,80H为第一个字节
+ 235   2                                 for(i=0;i<x2;i++)    //写入一行
+ 236   2                                {
+ 237   3                                               WRDataH(d1);
+ 238   3                                               WRDataH(d2);
+ 239   3                                }
+ 240   2                        }               
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 5   
+
+ 241   1      }
+ 242          
+ 243          void reg_l(Uchar x,Uchar y,Uchar x2,Uchar y2,Uchar d1,Uchar d2 )
+ 244          {    
+ 245   1                 Uchar j,i;       
+ 246   1                 WRCommandL(0x34);                    //去扩展指令寄存器
+ 247   1                 WRCommandL(0x36);                    //打开绘图功能
+ 248   1                 for(j=0;j<y2;j++)                            //2行   画两横上边框
+ 249   1                        {   
+ 250   2                                               WRCommandL(0x80+y+j);  //Y总坐标,即第几行
+ 251   2                                               WRCommandL(x); //X坐标，即横数第几个字节开始写起,80H为第一个字节
+ 252   2                                 for(i=0;i<x2;i++)    //写入一行
+ 253   2                                {
+ 254   3                                               WRDataL(d1);
+ 255   3                                               WRDataL(d2);
+ 256   3                                }
+ 257   2                        }       
+ 258   1      }
+ 259          void display_rom_8x16(bit y,Uchar column,Uchar *text)
+ 260          {
+ 261   1                              Uint i=0,j;
+ 262   1      
+ 263   1                              if(y==0)
+ 264   1                              {
+ 265   2                                      WRCommandH(column);     
+ 266   2                                      while(text[i]>0x00)
+ 267   2                                      {
+ 268   3                                      if((text[i]>=0x20)&&(text[i]<0x7e))     
+ 269   3                                      {
+ 270   4                                                      j=text[i];
+ 271   4                                                      WRDataH(j);
+ 272   4                                                      i++;
+ 273   4                                                      j=text[i];              
+ 274   4                                                      WRDataH(j);
+ 275   4                                                      WaitNms(10);////延时 x ms
+ 276   4                                                      i++;
+ 277   4                                      }       
+ 278   3                                      else
+ 279   3                                      i++;
+ 280   3                                      }
+ 281   2                              }
+ 282   1                              else
+ 283   1                              {       
+ 284   2                                      WRCommandL(column);     
+ 285   2                                      while(text[i]>0x00)
+ 286   2                                      {
+ 287   3                                      if((text[i]>=0x20)&&(text[i]<0x7e))     
+ 288   3                                      {
+ 289   4                                                      j=text[i];
+ 290   4                                                      WRDataL(j);
+ 291   4                                                      i++;            
+ 292   4                                                      j=text[i];
+ 293   4                                                      WRDataL(j);
+ 294   4                                                      WaitNms(10);////延时 x ms
+ 295   4                                              i++;
+ 296   4                                      }       
+ 297   3                                      else
+ 298   3                                      i++;
+ 299   3                                      }
+ 300   2      }       
+ 301   1                      
+ 302   1      }
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 6   
+
+ 303          
+ 304          void ShowText(bit y,Uchar column,Uchar *text)
+ 305          {
+ 306   1                      if(y==0)
+ 307   1                              {
+ 308   2                                      WRCommandH(column);     
+ 309   2                                      while(*text>0) 
+ 310   2                                              { 
+ 311   3                                               WRDataH(*text); 
+ 312   3                                               text++; 
+ 313   3                                              } 
+ 314   2                              }
+ 315   1                      else{
+ 316   2                                      WRCommandL(column);     
+ 317   2                                      while(*text>0) 
+ 318   2                                              { 
+ 319   3                                               WRDataL(*text); 
+ 320   3                                               text++; 
+ 321   3                                              } 
+ 322   2                              }
+ 323   1      }        
+ 324                          
+ 325          void fb1234(Uchar xn)
+ 326          {
+ 327   1                              reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 328   1                              reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 329   1                      if(xn==1)
+ 330   1                              {       
+ 331   2                              reg_h(0x80,0,12,16,0xff,0xff);                  //单行反白      
+ 332   2                              }
+ 333   1                      else if (xn==2)
+ 334   1                              {
+ 335   2                              reg_h(0x80,16,12,16,0xff,0xff);                 //单行反白      
+ 336   2                              }
+ 337   1                      else if(xn==3)
+ 338   1                              {
+ 339   2                              reg_l(0x80,0,12,16,0xff,0xff);                  //单行反白              
+ 340   2                              }
+ 341   1                      else if(xn==4)
+ 342   1                              {
+ 343   2                              reg_l(0x80,16,12,16,0xff,0xff);                 //单行反白      
+ 344   2                              }       
+ 345   1                      else
+ 346   1                              _nop_();
+ 347   1      }               
+ 348          /*      
+ 349          void time_rom_8x16(Uchar column,Uchar z,Uchar z1,Uchar d,Uchar d1,Uchar s,Uchar s1,Uchar s10,Uchar s100)
+ 350          {
+ 351          //      Uchar j;                        
+ 352                  WRCommandH(column);             
+ 353                  WRDataH(z+48);  
+ 354                  WRDataH(z1+48);                         
+ 355                  WRDataH(':');   
+ 356                  WRDataH(d+48);  
+ 357                  WRDataH(d1+48);                         
+ 358                  WRDataH(':');   
+ 359                  WRDataH(s+48);  
+ 360                  WRDataH(s1+48);                         
+ 361                  WRDataH(':');   
+ 362                  WRDataH(s10+48);        
+ 363                  WRDataH(s100+48);                                                                               
+ 364          }
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 7   
+
+ 365          */
+ 366          void time_ram_8x16(Uchar x,Uchar y,Uchar z,Uchar z1,Uchar d,Uchar d1,Uchar s,Uchar s1,Uchar s10,s100)
+ 367          {
+ 368   1                              Uchar k;
+ 369   1                              WRCommandH(0x34);                       //去扩展指令寄存器
+ 370   1                              WRCommandH(0x36);                       //打开绘图功能
+ 371   1                              for(k=0;k<16;k++)
+ 372   1                              {                                               
+ 373   2                                              WRCommandH(0x80+y+k);  //Y总坐标,即第几行
+ 374   2                                              WRCommandH(x);  //X坐标，即横数第几个字节开始写起,80H为第一个字节                               
+ 375   2                                              WRDataH(num_8x16[z][k]);
+ 376   2                                              WRDataH(~(num_8x16[z1][k]));
+ 377   2                                              WRDataH(num_8x16[10][k]);
+ 378   2                                              WRDataH(num_8x16[d][k]);
+ 379   2                                              WRDataH(~(num_8x16[d1][k]));
+ 380   2                                              WRDataH(num_8x16[10][k]);
+ 381   2                                              WRDataH(num_8x16[s][k]);
+ 382   2                                              WRDataH(~(num_8x16[s1][k]));
+ 383   2                                              WRDataH(num_8x16[10][k]);
+ 384   2                                              WRDataH(num_8x16[s10][k]);      
+ 385   2                                              WRDataH(~(num_8x16[s100][k]));  
+ 386   2              }                                                       
+ 387   1      }
+ 388          
+ 389          /******************************************************************************/        
+ 390          //void time_ram_16x32(Uchar x,Uchar y,Uchar d,Uchar d1,Uchar s,Uchar s1)
+ 391          //{
+ 392          //                      Uchar k;
+ 393          //                      WRCommandH(0x34);                       //去扩展指令寄存器
+ 394          //                      WRCommandH(0x36);                       //打开绘图功能
+ 395          //                      for(k=0;k<31;k++)
+ 396          //                      {                                               
+ 397          //                                              WRCommandH(0x80+y+k);  //Y总坐标,即第几行
+ 398          //                                              WRCommandH(x);  //X坐标，即横数第几个字节开始写起,80H为第一个字节                               
+ 399          //                                              WRDataH(num_16x32[d][k*2]);             WRDataH(num_16x32[d][k*2+1]);
+ 400          //                                              WRDataH(num_16x32[d1][k*2]);    WRDataH(num_16x32[d1][k*2+1]);
+ 401          //                                              WRDataH(num_16x32[10][k*2]);    WRDataH(num_16x32[10][k*2+1]);
+ 402          //                                              WRDataH(num_16x32[s][k*2]);             WRDataH(num_16x32[s][k*2+1]);
+ 403          //                                              WRDataH(num_16x32[s1][k*2]);    WRDataH(num_16x32[s1][k*2+1]);  
+ 404          //                      }                                               
+ 405          //}     
+ 406          /******************************************************************************/        
+ 407          void time_ram_16x32(Uchar x,Uchar y,Uchar d,Uchar d1,Uchar s,Uchar s1)
+ 408          {
+ 409   1                              Uchar k;
+ 410   1                              WRCommandL(0x34);                       //去扩展指令寄存器
+ 411   1                              WRCommandL(0x36);                       //打开绘图功能
+ 412   1                              for(k=0;k<31;k++)
+ 413   1                              {                                               
+ 414   2                                                      WRCommandL(0x80+y+k);  //Y总坐标,即第几行
+ 415   2                                                      WRCommandL(x);  //X坐标，即横数第几个字节开始写起,80H为第一个字节                               
+ 416   2                                                      WRDataL(num_16x32[d][k*2]);             WRDataL(num_16x32[d][k*2+1]);
+ 417   2                                                      WRDataL(num_16x32[d1][k*2]);    WRDataL(num_16x32[d1][k*2+1]);
+ 418   2                                                      WRDataL(num_16x32[10][k*2]);    WRDataL(num_16x32[10][k*2+1]);
+ 419   2                                                      WRDataL(num_16x32[s][k*2]);             WRDataL(num_16x32[s][k*2+1]);
+ 420   2                                                      WRDataL(num_16x32[s1][k*2]);    WRDataL(num_16x32[s1][k*2+1]);  
+ 421   2                              }                                               
+ 422   1      }       
+ 423                  
+ 424          /******************************************************************************/
+ 425          //void time_ram_24x48(Uchar x,Uchar y,Uchar z,Uchar z1,Uchar d,Uchar d1)
+ 426          //{
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 8   
+
+ 427          //      Uchar k,j;
+ 428          //      WRCommandH(0x34);       WRCommandL(0x34);                       //去扩展指令寄存器
+ 429          //      WRCommandH(0x36);       WRCommandL(0x36);                       //打开绘图功能
+ 430          //      for(k=0;k<48;k++)
+ 431          //      {       
+ 432          //              if(k<32)
+ 433          //              {
+ 434          //              WRCommandH(0x80+y+k);  //Y总坐标,即第几行
+ 435          //              WRCommandH(x);  //X坐标，即横数第几个字节开始写起,80H为第一个字节                               
+ 436          //              for(j=0;j<3;j++)        {WRDataH(num_24x48[z][k+k*2+j]);}
+ 437          //              for(j=0;j<3;j++)        {WRDataH(~(num_24x48[z1][k+k*2+j]));}                   
+ 438          //              for(j=0;j<3;j++)        {WRDataH(num_24x48[d][k+k*2+j]);}
+ 439          //              for(j=0;j<3;j++)        {WRDataH(~(num_24x48[d1][k+k*2+j]));}
+ 440          //              }
+ 441          //              else
+ 442          //              {
+ 443          //              WRCommandL(0x80+y+k-32);  //Y总坐标,即第几行
+ 444          //              WRCommandL(x);  //X坐标，即横数第几个字节开始写起,80H为第一个字节                               
+ 445          //              for(j=0;j<3;j++)        {WRDataL(num_24x48[z][k+k*2+j]);}
+ 446          //              for(j=0;j<3;j++)        {WRDataL(~(num_24x48[z1][k+k*2+j]));}                           
+ 447          //              for(j=0;j<3;j++)        {WRDataL(num_24x48[d][k+k*2+j]);}
+ 448          //              for(j=0;j<3;j++)        {WRDataL(~(num_24x48[d1][k+k*2+j]));}
+ 449          //              }                       
+ 450          //      }                                               
+ 451          //}
+ 452          
+ 453          /******************************************************************************/
+ 454          void time_ram_24x48(Uchar x,Uchar y,Uchar z,Uchar z1,Uchar z2,Uchar d,Uchar d1)
+ 455          {
+ 456   1                              Uchar k,j;
+ 457   1                              WRCommandH(0x34);       WRCommandL(0x34);                       //去扩展指令寄存器
+ 458   1                              WRCommandH(0x36);       WRCommandL(0x36);                       //打开绘图功能
+ 459   1                              for(k=0;k<48;k++)
+ 460   1                              {       
+ 461   2                                      if(k<32)
+ 462   2                                      {
+ 463   3                                                      WRCommandH(0x80+y+k);  //Y总坐标,即第几行
+ 464   3                                                      WRCommandH(x);  //X坐标，即横数第几个字节开始写起,80H为第一个字节                               
+ 465   3                                                      for(j=0;j<3;j++)        {WRDataH(num_24x48[z][k+k*2+j]);}
+ 466   3                                                      for(j=0;j<3;j++)        {WRDataH((num_24x48[z1][k+k*2+j]));}            
+ 467   3                                                      for(j=0;j<3;j++)        {WRDataH((num_24x48[z2][k+k*2+j]));}                    
+ 468   3                                                      for(j=0;j<3;j++)        {WRDataH(num_24x48[d][k+k*2+j]);}
+ 469   3                                                      for(j=0;j<3;j++)        {WRDataH((num_24x48[d1][k+k*2+j]));}
+ 470   3                                      }
+ 471   2                                      else
+ 472   2                                      {
+ 473   3                                                      WRCommandL(0x80+y+k-32);  //Y总坐标,即第几行
+ 474   3                                                      WRCommandL(x);  //X坐标，即横数第几个字节开始写起,80H为第一个字节                               
+ 475   3                                                      for(j=0;j<3;j++)        {WRDataL(num_24x48[z][k+k*2+j]);}
+ 476   3                                                      for(j=0;j<3;j++)        {WRDataL((num_24x48[z1][k+k*2+j]));}            
+ 477   3                                                      for(j=0;j<3;j++)        {WRDataL((num_24x48[z2][k+k*2+j]));}                            
+ 478   3                                                      for(j=0;j<3;j++)        {WRDataL(num_24x48[d][k+k*2+j]);}
+ 479   3                                                      for(j=0;j<3;j++)        {WRDataL((num_24x48[d1][k+k*2+j]));}
+ 480   3                                      }                       
+ 481   2                              }                                               
+ 482   1      }                       
+ 483          
+ 484          
+ 485          //初始化LCD-8位接口
+ 486          void LCDInit(void)
+ 487          {       
+ 488   1                PSB=0; //串口
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 9   
+
+ 489   1      //    PSB=1;//并口时选这个,上一行取消
+ 490   1          REST=1;
+ 491   1          REST=0;
+ 492   1          REST=1;
+ 493   1      
+ 494   1              WRCommandH(0x30);       //基本指令集,8位并行
+ 495   1              WRCommandL(0x30);       //基本指令集,8位并行
+ 496   1      
+ 497   1                      WRCommandH(0x06);       //启始点设定：光标右移
+ 498   1                      WRCommandL(0x06);       //启始点设定：光标右移
+ 499   1      
+ 500   1                      WRCommandH(0x01);       //清除显示DDRAM
+ 501   1                      WRCommandL(0x01);       //清除显示DDRAM
+ 502   1      
+ 503   1                      WRCommandH(0x0C);       //显示状态开关：整体显示开，光标显示关，光标显示反白关
+ 504   1                      WRCommandL(0x0C);       //显示状态开关：整体显示开，光标显示关，光标显示反白关
+ 505   1      
+ 506   1                      WRCommandH(0x02);       //地址归零      
+ 507   1                      WRCommandL(0x02);       //地址归零      
+ 508   1              
+ 509   1      //      WaitNms(250);
+ 510   1      //      reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 511   1      //      reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏         
+ 512   1      //      WRCommandH(0x34);       WRCommandH(0x34);       //关绘图        
+ 513   1      //      
+ 514   1      //      ShowText(1,0x95,"您好! 欢迎光临");//引用汉字串显示
+ 515   1      //      
+ 516   1      }
+ 517          /*******************************************************************/
+ 518          void Display_Time1(void)
+ 519          {       
+ 520   1                                                              os_delete_task(DISPLAY);
+ 521   1                              WaitNms(50);
+ 522   1                              reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 523   1                              reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 524   1                              WRCommandH(0x34);       WRCommandH(0x34);       //关绘图        
+ 525   1                              LCDInit();//初始化              
+ 526   1                              if(MOTO_STATE==MOTO_RUN)
+ 527   1                                      {
+ 528   2                                                              ShowText(0,0x91,"Run  ");
+ 529   2                                      }else if(MOTO_STATE==MOTO_START)
+ 530   1                                      {
+ 531   2                                                              ShowText(0,0x91,"Run  ");
+ 532   2                                      }       else    if(MOTO_STATE==MOTO_PASUE)
+ 533   1                                      {
+ 534   2      //                                                      LCDInit();//初始化              
+ 535   2      //                                                      ShowText(0,0x91,"Pause");
+ 536   2                                                              ShowText(0,0x91,"Pause");
+ 537   2                                      }else   if(MOTO_STATE==LID_UP)
+ 538   1                                      {
+ 539   2      //                                                      LCDInit();//初始化              
+ 540   2      //                                                      ShowText(0,0x91,"LID_UP");
+ 541   2                                                              ShowText(0,0x91,"LID_UP");
+ 542   2                                      }else   if(MOTO_STATE==MOTO_STOP)
+ 543   1                                      {
+ 544   2      //                                                      LCDInit();//初始化              
+ 545   2      //                                                      ShowText(0,0x91,"STOP ");
+ 546   2                                                              ShowText(0,0x91,"STOP ");
+ 547   2                                      }else   if(MOTO_STATE==MOTO_ERROR)
+ 548   1                                      {
+ 549   2                                                              ShowText(0,0x91,"Error");
+ 550   2                                      }else   
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 10  
+
+ 551   1                                      {
+ 552   2      //                                                      LCDInit();//初始化              
+ 553   2      //                                                      ShowText(0,0x91,"STOP ");
+ 554   2                                                              ShowText(0,0x91,"STOP ");
+ 555   2                                      } 
+ 556   1                                              ShowText(0,0x80,"2458:");//引用汉字串显示
+ 557   1                                              ShowText(0,0x80,"STATE:");//引用汉字串显示
+ 558   1                                      sprintf(Dis_Speed_Data,"%4d",MOTOR_SPEED);
+ 559   1                                      sprintf(Dis_Time_Data_H,"%02d",RUN_TIME/60);
+ 560   1                                      sprintf(Dis_Time_Data_L,":%02d",RUN_TIME%60);
+ 561   1                              
+ 562   1                                      ShowText(1,0x92,"rpm");//引用汉字串显示
+ 563   1                                      ShowText(1,0x99," min");//引用汉字串显示
+ 564   1                                      ShowText(1,0x90,Dis_Speed_Data);
+ 565   1                                      sprintf(Dis_Time_Data_H,"%02d",RUN_TIME_TEMP/60);
+ 566   1                                      sprintf(Dis_Time_Data_L,":%02d",RUN_TIME_TEMP%60);
+ 567   1                                      ShowText(1,0x97,Dis_Time_Data_H);
+ 568   1                                      ShowText(1,0x98,Dis_Time_Data_L);
+ 569   1                                      os_create_task (DISPLAY); 
+ 570   1      //                              time_ram_16x32(0x80,0,d,d1,s,s1);
+ 571   1      ////                            ShowText(1,0x95,"您好! 欢迎光临");//引用汉字串显示
+ 572   1      //                              time_ram_16x32(0x84,0,RUN_TIME/60/10,RUN_TIME/60%10,RUN_TIME%60/10,RUN_TIME%60%10);
+ 573   1      //                              while(RUN_TIME>0)
+ 574   1      //                              {
+ 575   1      //                                                      time_ram_24x48(0x84,0,RUN_TIME/60/10,RUN_TIME/60%10,10,RUN_TIME%60/10,RUN_TIME%60%10);
+ 576   1      //                              }
+ 577   1      //                              Diaplay_SUB();
+ 578   1      }
+ 579          /*******************************************************************/
+ 580          void Diaplay_SUB(void)
+ 581          {
+ 582   1                                      time_ram_24x48(0x84,0,RUN_TIME/60/10,RUN_TIME/60%10,10,RUN_TIME%60/10,RUN_TIME%60%10);
+ 583   1      }
+ 584          /*******************************************************************/
+ 585          void Diaplay_Init(void)
+ 586          {       
+ 587   1      //                              WaitNms(50);            //等待时间              
+ 588   1      //////                  reg_h(0x80,0,4,32,0x00,0x00);                   //绘图演示-洗屏 
+ 589   1      //////                  reg_l(0x90,0,8,32,0x00,0x00);                   //绘图演示-洗屏         
+ 590   1      //                      reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 591   1      //                      reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏         
+ 592   1      //                      WRCommandH(0x34);       WRCommandH(0x34);       //关绘图        
+ 593   1      //                      LCDInit();//初始化              
+ 594   1      //                                      ShowText(0,0x80,"2458:");//引用汉字串显示
+ 595   1      //                                      ShowText(0,0x80,"STATE:");//引用汉字串显示
+ 596   1      //                                      if(MOTO_STATE==MOTO_RUN)
+ 597   1      //                                              {
+ 598   1      //                                                                      ShowText(0,0x91,"Run");
+ 599   1      //                                              }       else    if(MOTO_STATE==MOTO_PASUE)
+ 600   1      //                                              {
+ 601   1      //                                                                      ShowText(0,0x91,"Pause");
+ 602   1      //                                              }else   if(MOTO_STATE==LID_UP)
+ 603   1      //                                              {
+ 604   1      //                                                                      ShowText(0,0x91,"LID_UP");
+ 605   1      //                                              }else   if(MOTO_STATE==MOTO_STOP)
+ 606   1      //                                              {
+ 607   1      //                                                                      ShowText(0,0x91,"STOP");
+ 608   1      //                                              }else   
+ 609   1      //                                              {
+ 610   1      //                                                                      ShowText(0,0x91,"STOP");
+ 611   1      //                                              }
+ 612   1      //                                              sprintf(Dis_Speed_Data,"%4d",MOTOR_SPEED);
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 11  
+
+ 613   1      
+ 614   1      ////                                    
+ 615   1      ////                                            ShowText(1,0x80,"ABCDEFGHIJKLMNOPQR");//引用汉字串显示
+ 616   1      ////                                            
+ 617   1      //                                              ShowText(1,0x92,"rpm");//引用汉字串显示
+ 618   1      //                                              ShowText(1,0x99," min");//引用汉字串显示
+ 619   1      //                                              ShowText(1,0x90,Dis_Speed_Data);
+ 620   1      //                                              ShowText(1,0x97,Dis_Time_Data_H);
+ 621   1      //                                              ShowText(1,0x98,Dis_Time_Data_L);
+ 622   1      //              //                              ShowText(1,0x95,"您好! 欢迎光临");//引用汉字串显示
+ 623   1      //                                              
+ 624   1      //                                              time_ram_24x48(0x84,0,RUN_TIME/60/10,RUN_TIME/60%10,10,RUN_TIME%60/10,RUN_TIME%60%10);
+ 625   1      
+ 626   1      //              ini_int1();//开中断
+ 627   1      
+ 628   1      
+ 629   1              WaitNms(250);
+ 630   1      //      LCDInit();//初始化
+ 631   1      
+ 632   1      //for(m1=0;m1<3;m1++)
+ 633   1              {       
+ 634   2                                      reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 635   2                                      reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 636   2      //                              LCDInit();//初始化              
+ 637   2      //                              ShowText(0,0x94,"绘晶科技");//引用汉字串显示    
+ 638   2      //                              ShowText(0,0x80,"绘晶科技");//引用汉字串显示    
+ 639   2      //                              ShowText(0,0x80,"       ");//引用汉字串显示     
+ 640   2      //                              ShowText(0,0x94,"莱普艾克");//引用汉字串显示    
+ 641   2      //                              ShowText(1,0x84," 192x64");//引用汉字串显示             
+ 642   2      //                              reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 (x,y,x2,y2,d1,d2)
+ 643   2      //                              reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 (x,y,x2,y2,d1,d2)                       
+ 644   2      //                              reg_h(0x80,0,12,2,0xff,0xff);                   //绘图演示-画上边框 (x,y,x2,y2,d1,d2)
+ 645   2      //                              reg_h(0x80,2,1,30,0xc0,0x00);                   //绘图演示-画上左边框(x,y,x2,y2,d1,d2) 
+ 646   2      //                              reg_h(0x80+11,2,1,30,0x00,0x03);                //绘图演示-画上右边框 (x,y,x2,y2,d1,d2)         
+ 647   2      //                              reg_l(0x80,29,12,2,0xff,0xff);                  //绘图演示-画下边框 (x,y,x2,y2,d1,d2)
+ 648   2      //                              reg_l(0x80,0,1,29,0xc0,0x00);                   //绘图演示-画下左边框 (x,y,x2,y2,d1,d2)
+ 649   2      //                              reg_l(0x80+11,0,1,29,0x00,0x03);                //绘图演示-画下右边框 (x,y,x2,y2,d1,d2)                 
+ 650   2      //                              WaitNms(1250);          //等待时间
+ 651   2      //                              WRCommandH(0x34);       WRCommandH(0x34);       //关绘图        
+ 652   2      //                              WRCommandL(0x34);       WRCommandL(0x34);       //关绘图        
+ 653   2      //                      //-----------------------------------------------------------------------汉字加图形     
+ 654   2      //                              WRCommandH(0x01);       WRCommandL(0x01);               
+ 655   2      //                              ShowText(0,0x94,"绘晶科技");//引用汉字串显示    
+ 656   2      //                              ShowText(1,0x84," 192X64");//引用汉字串显示     
+ 657   2      //                              reg_h(0x80,0,12,32,0xff,0xff);                  //绘图演示-全屏反白     
+ 658   2      //                              reg_l(0x80,0,12,32,0xff,0xff);                  //绘图演示-全屏反白 
+ 659   2      //                              WaitNms(1250);          //等待时间      
+ 660   2      //                      //-----------------------------------------------------------------------全屏反白       
+ 661   2      //                                      
+ 662   2      //                              reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 663   2      //                              reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 664   2      //                              LCDInit();//初始化      
+ 665   2      //                                      ShowNUMCharH(0x80,0x01,24);//显示半宽特殊符号（地址，首字符，一行个数）
+ 666   2      //                              ShowNUMCharH(0x90,0x30,24);//显示半宽0~?数字标点
+ 667   2      //                              ShowNUMCharL(0x80,0x41,24);//显示半宽A~P大写
+ 668   2      //                              ShowNUMCharL(0x90,0x61,24);//显示半宽a~p小写
+ 669   2      //                              WaitNms(1250);          //等待时间                                              
+ 670   2      //                      //-----------------------------------------------------------------------调ASCII-ROM，  
+ 671   2      //                              LCDInit();//初始化      
+ 672   2      //                              WRCGRAM(0xff,0x00,0x40);//写入横（2个8位，2个8位，自编地址）
+ 673   2      //                              WRCGRAM(0x00,0xff,0x50);//写入横2
+ 674   2      //                              WRCGRAM(0xaa,0xaa,0x60);//写入竖
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 12  
+
+ 675   2      //                              WRCGRAM(0x55,0x55,0x70);//写入竖2------------自编符号
+ 676   2      //                                      ShowCGChar(0x80,0x00);//显示横并填满（显示地址，自编数据地址）
+ 677   2      //                              WaitNms(1350);          //等待时间-----------------横1
+ 678   2      //                              WRCommandH(0x01);       WRCommandL(0x01);
+ 679   2      //                                      ShowCGChar(0x80,02);//显示横2并填满
+ 680   2      //                              WaitNms(1350);          //等待时间-----------------横
+ 681   2      //                              WRCommandH(0x01);       WRCommandL(0x01);
+ 682   2      //                              ShowCGChar(0x80,04);//显示竖并填满
+ 683   2      //                              WaitNms(1250);          //等待时间-----------------竖1
+ 684   2      //                              WRCommandH(0x01);       WRCommandL(0x01);
+ 685   2      //                              ShowCGChar(0x80,06);//显示竖2并填满
+ 686   2      //                              WaitNms(1250);          //等待时间-----------------竖
+ 687   2      
+ 688   2      //                              WRCommandH(0x01);       WRCommandL(0x01);
+ 689   2      //                              WRCGRAM(0x00,0x00,0x40);//清CGRAM1
+ 690   2      //                              WRCGRAM(0x00,0x00,0x50);//清CGRAM2------------清自编符号
+ 691   2      //                              WRCGRAM(0xaa,0x55,0x40);//写入点
+ 692   2      //                              WRCGRAM(0x55,0xaa,0x50);//写入点2
+ 693   2      //                              ShowCGChar(0x80,00);//显示点并填满
+ 694   2      //                              WaitNms(1250);          //等待时间-----------------点1
+ 695   2      //                              WRCommandH(0x01);       WRCommandL(0x01);
+ 696   2      //                              ShowCGChar(0x80,02);//显示点2并填满
+ 697   2      //                              WaitNms(1250);          //等待时间-----------------点
+ 698   2      //                      //-----------------------------------------------------------------------扫描横竖点
+ 699   2      //                              reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 700   2      //                              reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 701   2      //                              LCDInit();//初始化      
+ 702   2      //                              display_rom_8x16(0,0x81,"HUIJINGKEJI:19264ZW\0");//(0为上半屏,地址,字符串）
+ 703   2      //                              display_rom_8x16(0,0x91,"PHONE:18923422341\0"); 
+ 704   2      //                              display_rom_8x16(1,0x81,"TEL: 0755-23146001\0");
+ 705   2      //                              display_rom_8x16(1,0x91,"www.huijinglcm.com\0 ");
+ 706   2      //                              reg_h(0x85,0,1,32,0xff,0x00);                   //绘图演示-单字反白 (x,y,x2,y2,d1,d2)
+ 707   2      //                              reg_l(0x85,0,1,16,0xff,0x00);                   //绘图演示-单字反白 (x,y,x2,y2,d1,d2)
+ 708   2      //                              reg_h(0x86,17,1,16,0xff,0x00);                  //绘图演示-单字反白 (x,y,x2,y2,d1,d2)
+ 709   2      //                              reg_l(0x86,0,1,32,0xff,0x00);                   //绘图演示-单字反白 (x,y,x2,y2,d1,d2)   
+ 710   2      //                              reg_h(0x87,17,1,16,0xff,0x00);                  //绘图演示-单字反白 (x,y,x2,y2,d1,d2)   
+ 711   2      //                              reg_l(0x87,0,1,16,0xff,0x00);                   //绘图演示-单字反白 (x,y,x2,y2,d1,d2)   
+ 712   2      //                              reg_h(0x88,0,1,32,0xff,0x00);                   //绘图演示-单字反白 (x,y,x2,y2,d1,d2)
+ 713   2      //                              reg_l(0x88,0,1,32,0xff,0x00);                   //绘图演示-单字反白 (x,y,x2,y2,d1,d2)   
+ 714   2      //                              WaitNms(1250);          //等待时间
+ 715   2      //                              reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏         
+ 716   2      //                              WRCommandH(0x34);       WRCommandH(0x34);       //关绘图        
+ 717   2                              //-----------------------------------------------------------------------引用字符串演示 
+ 718   2                                      reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 719   2                                      reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 720   2                                      LCDInit();//初始化      
+ 721   2                                      ShowText(0,0x91,"Tissue/Grinder 2020");//引用汉字串显示
+ 722   2      //                              ShowText(0,0x95,"2020");//引用汉字串显示
+ 723   2                                      WaitNms(2000);  
+ 724   2      ////                            ShowText(1,0x80,"19264 带中文字库显示器");//引用汉字串显示
+ 725   2                                      ShowText(1,0x93,"Initializing..");//引用汉字串显示      
+ 726   2                                      fb1234(4);
+ 727   2                                      WaitNms(5000);  
+ 728   2                                      fb1234(4);
+ 729   2                                      WaitNms(5000);  
+ 730   2      //                              fb1234(4);
+ 731   2      //                              WaitNms(5000);  
+ 732   2      //                              ShowText(0,0x80,"深圳绘晶科技有限公司");//引用汉字串显示
+ 733   2      //                              ShowText(1,0x80,"青岛莱普艾克电子有限公司");//引用汉字串显示
+ 734   2      ////                            fb1234(3);
+ 735   2      //                              WaitNms(2000);  
+ 736   2      //                              ShowText(1,0x80,"                      ");//引用汉字串显示
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 13  
+
+ 737   2      //                              ShowText(1,0x82,"实验室前端处理专家");//引用汉字串显示
+ 738   2      ////                            fb1234(3);
+ 739   2      //                              WaitNms(200);   
+ 740   2      //                              ShowText(0,0x80,"青岛莱普艾克电子有限公司");//引用汉字串显示
+ 741   2      //                              ShowText(0,0x92,"实验室前端处理专家");//引用汉字串显示
+ 742   2      ////                            fb1234(3);
+ 743   2      //                              fb1234(1);      WaitNms(200);           //等待时间      
+ 744   2      //                              ShowText(1,0x80,"青岛莱普艾克电子有限公司");//引用汉字串显示
+ 745   2      //                              ShowText(1,0x92,"实验室前端处理专家");//引用汉字串显示
+ 746   2      //                              fb1234(1);      WaitNms(200);           //等待时间      
+ 747   2      //                              ShowText(0,0x90,"青岛莱普艾克电子有限公司");//引用汉字串显示
+ 748   2      //                              ShowText(1,0x82,"实验室前端处理专家");//引用汉字串显示
+ 749   2      //                              fb1234(2);      WaitNms(200);           //等待时间      
+ 750   2      //                              fb1234(3);      WaitNms(200);           //等待时间      
+ 751   2      //                              fb1234(4);      WaitNms(250);           //等待时间              
+ 752   2                              //-----------------------------------------------------------------------调用汉字/单行反白                                              
+ 753   2      //                                              LED1=!LED1;
+ 754   2      //                                              LED2=!LED2;
+ 755   2              }
+ 756   1      
+ 757   1      //                              WaitNms(50);            //等待时间              
+ 758   1      //              reg_h(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏 
+ 759   1      //              reg_l(0x80,0,12,32,0x00,0x00);                  //绘图演示-洗屏         
+ 760   1      //              WRCommandH(0x34);       WRCommandH(0x34);       //关绘图        
+ 761   1      //              LCDInit();//初始化              
+ 762   1      //      ShowText(0,0x80,"深圳绘晶科技");//引用汉字串显示
+ 763   1      //      ShowText(0,0x80,"深圳绘晶科技");//引用汉字串显示
+ 764   1      //      ShowText(1,0x95,"您好! 欢迎光临");//引用汉字串显示      
+ 765   1      //                      
+ 766   1      //                                              
+ 767   1      //      for(z=0;z<10;z++)
+ 768   1      //      {               
+ 769   1      //              for(z1=0;z1<10;z1++)
+ 770   1      //              {               
+ 771   1      //                      for(d=0;d<6;d++)
+ 772   1      //                      {       
+ 773   1      //                              
+ 774   1      //                              for(d1=0;d1<10;d1++)
+ 775   1      //                              {       
+ 776   1      //                                      time_ram_24x48(0x86,0,z,z1,d,d1);
+ 777   1      ////                            time_ram_24x48(0x84,0,RUN_TIME/60/10,RUN_TIME/60%10,10,RUN_TIME%60/10,RUN_TIME%60%10);
+ 778   1      //                                      for(s=0;s<6;s++)
+ 779   1      //                                      {                                                               
+ 780   1      //                                              for(s1=0;s1<10;s1++)
+ 781   1      //                                              {               
+ 782   1      //                                                      time_ram_16x32(0x80,0,d,d1,s,s1);       
+ 783   1      //                                                      time_nms(10);////延时 x ms      
+ 784   1      //                                              LED1=!LED1;
+ 785   1      //                                              LED2=!LED2;     
+ 786   1      //                                                      for(s10=0;s10<10;s10++)
+ 787   1      //                                                      {                       
+ 788   1      //                                                              time_nms(10);////延时 x ms
+ 789   1      //                                                              
+ 790   1      //                                                              for(s100=0;s100<10;s100++)
+ 791   1      //                                                              {                                                                                                                               
+ 792   1      //                                                              time_nms(1);////延时 x ms       
+ 793   1      //                                                              time_ram_8x16(0x80,16,z,z1,d,d1,s,s1,s10,s100); 
+ 794   1      ////                                                            time_rom_8x16(0x80,z,z1,d,d1,s,s1,s10,s100);                                                                    
+ 795   1      //                                                              }
+ 796   1      //                                                      }
+ 797   1      //                                              }
+ 798   1      //                                      }
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 14  
+
+ 799   1      //                              }
+ 800   1      //                      }       
+ 801   1      //              }       
+ 802   1      //      }                                               
+ 803   1              
+ 804   1      
+ 805   1      }
+ 806          
+ 807          
+ 808          Uchar code  num_8x16[11][16]={
+ 809          /*--  文字:  0  --*/
+ 810          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 811          0x00,0x00,0x00,0x18,0x24,0x42,0x42,0x42,0x42,0x42,0x42,0x42,0x24,0x18,0x00,0x00,
+ 812          /*--  文字:  1  --*/
+ 813          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 814          0x00,0x00,0x00,0x10,0x70,0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x7C,0x00,0x00,
+ 815          /*--  文字:  2  --*/
+ 816          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 817          0x00,0x00,0x00,0x3C,0x42,0x42,0x42,0x04,0x04,0x08,0x10,0x20,0x42,0x7E,0x00,0x00,
+ 818          /*--  文字:  3  --*/
+ 819          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 820          0x00,0x00,0x00,0x3C,0x42,0x42,0x04,0x18,0x04,0x02,0x02,0x42,0x44,0x38,0x00,0x00,
+ 821          /*--  文字:  4  --*/
+ 822          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 823          0x00,0x00,0x00,0x04,0x0C,0x14,0x24,0x24,0x44,0x44,0x7E,0x04,0x04,0x1E,0x00,0x00,
+ 824          /*--  文字:  5  --*/
+ 825          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 826          0x00,0x00,0x00,0x7E,0x40,0x40,0x40,0x58,0x64,0x02,0x02,0x42,0x44,0x38,0x00,0x00,
+ 827          /*--  文字:  6  --*/
+ 828          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 829          0x00,0x00,0x00,0x1C,0x24,0x40,0x40,0x58,0x64,0x42,0x42,0x42,0x24,0x18,0x00,0x00,
+ 830          /*--  文字:  7  --*/
+ 831          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 832          0x00,0x00,0x00,0x7E,0x44,0x44,0x08,0x08,0x10,0x10,0x10,0x10,0x10,0x10,0x00,0x00,
+ 833          /*--  文字:  8  --*/
+ 834          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 835          0x00,0x00,0x00,0x3C,0x42,0x42,0x42,0x24,0x18,0x24,0x42,0x42,0x42,0x3C,0x00,0x00,
+ 836          /*--  文字:  9  --*/
+ 837          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 838          0x00,0x00,0x00,0x18,0x24,0x42,0x42,0x42,0x26,0x1A,0x02,0x02,0x24,0x38,0x00,0x00,
+ 839          /*--  文字:  :  --*/
+ 840          /*--  宋体12;  此字体下对应的点阵为：宽x高=8x16   --*/
+ 841          0x00,0x00,0x00,0x00,0x00,0x00,0x18,0x18,0x00,0x00,0x00,0x00,0x18,0x18,0x00,0x00,
+ 842          };
+ 843          
+ 844          Uchar code  num_16x32[11][62]={
+ 845          /*--  文字:  0  --*/
+ 846          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 847          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0F,0xFF,0x1F,0xFF,
+ 848          0x1F,0xFF,0x1E,0x0F,0x1E,0x0F,0x3E,0x0F,0x3E,0x0F,0x3E,0x0F,0x1C,0x07,0x00,0x00,
+ 849          0x18,0x02,0x3C,0x0F,0x3C,0x0F,0x3C,0x0F,0x3C,0x1F,0x3C,0x1F,0x7C,0x0F,0x7F,0xFF,
+ 850          0x7F,0xFF,0x3F,0xFE,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 851          /*--  文字:  1  --*/
+ 852          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=9x31   --*/
+ 853          /*--  宽度不是8的倍数，现调整为：宽度x高度=16x31  --*/
+ 854          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x03,0x00,0x07,0x00,
+ 855          0x0F,0x00,0x1F,0x00,0x1F,0x00,0x1F,0x00,0x1F,0x00,0x1F,0x00,0x0E,0x00,0x00,0x00,
+ 856          0x04,0x00,0x1E,0x00,0x1E,0x00,0x3E,0x00,0x3E,0x00,0x3E,0x00,0x3E,0x00,0x1E,0x00,
+ 857          0x0E,0x00,0x06,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 858          /*--  文字:  2  --*/
+ 859          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 860          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0F,0xFF,0x07,0xFF,
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 15  
+
+ 861          0x03,0xFF,0x00,0x07,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x07,0xFF,0x0F,0xFE,
+ 862          0x1F,0xFC,0x3C,0x00,0x3C,0x00,0x3C,0x00,0x3C,0x00,0x3C,0x00,0x3C,0x00,0x7F,0xF8,
+ 863          0x7F,0xFC,0x3F,0xFE,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 864          /*--  文字:  3  --*/
+ 865          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 866          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0xFF,0x0F,0xFF,
+ 867          0x07,0xFF,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x1F,0x00,0x0F,0x0F,0xFF,0x1F,0xFC,
+ 868          0x0F,0xFE,0x00,0x0F,0x00,0x1F,0x00,0x1F,0x00,0x1E,0x00,0x1E,0x00,0x1E,0x0F,0xFE,
+ 869          0x1F,0xFE,0x7F,0xFC,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 870          /*--  文字:  4  --*/
+ 871          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 872          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x30,0x03,0x38,0x07,
+ 873          0x38,0x0F,0x3C,0x1F,0x3C,0x1F,0x7C,0x1F,0x7C,0x1F,0x7C,0x1F,0x3F,0xFE,0x1F,0xFC,
+ 874          0x0F,0xFC,0x00,0x1E,0x00,0x3E,0x00,0x3E,0x00,0x3E,0x00,0x3E,0x00,0x3E,0x00,0x1E,
+ 875          0x00,0x0E,0x00,0x06,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 876          /*--  文字:  5  --*/
+ 877          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 878          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0xFF,0x3F,0xFE,
+ 879          0x3F,0xFC,0x3C,0x00,0x3C,0x00,0x3C,0x00,0x3C,0x00,0x3C,0x00,0x3F,0xF8,0x1F,0xFC,
+ 880          0x0F,0xFE,0x00,0x0F,0x00,0x1F,0x00,0x1F,0x00,0x1F,0x00,0x1E,0x00,0x1E,0x0F,0xFE,
+ 881          0x1F,0xFE,0x7F,0xFC,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 882          /*--  文字:  6  --*/
+ 883          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 884          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0F,0xFF,0x1F,0xFE,
+ 885          0x1F,0xFC,0x1E,0x00,0x1E,0x00,0x3E,0x00,0x3E,0x00,0x3E,0x00,0x1F,0xFC,0x0F,0xFE,
+ 886          0x1F,0xFE,0x3C,0x07,0x3C,0x0F,0x3C,0x0F,0x3C,0x0F,0x3C,0x0F,0x7C,0x0F,0x7F,0xFF,
+ 887          0x7F,0xFF,0x3F,0xFE,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 888          /*--  文字:  7  --*/
+ 889          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 890          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0xFF,0x07,0xFF,
+ 891          0x03,0xFF,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x07,0x00,0x00,
+ 892          0x00,0x06,0x00,0x0F,0x00,0x1F,0x00,0x1F,0x00,0x1F,0x00,0x1F,0x00,0x1F,0x00,0x0F,
+ 893          0x00,0x0E,0x00,0x06,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 894          /*--  文字:  8  --*/
+ 895          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 896          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0F,0xFF,0x1F,0xFF,
+ 897          0x1F,0xFF,0x1E,0x0F,0x1E,0x0F,0x3E,0x0F,0x3E,0x0F,0x3E,0x0F,0x1F,0xFF,0x0F,0xFE,
+ 898          0x1F,0xFE,0x3C,0x0F,0x3C,0x0F,0x3C,0x0F,0x3C,0x1F,0x3C,0x1F,0x7C,0x0F,0x7F,0xFF,
+ 899          0x7F,0xFF,0x3F,0xFE,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 900          /*--  文字:  9  --*/
+ 901          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=16x31   --*/
+ 902          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0xFF,0x3F,0xFF,
+ 903          0x3F,0xFF,0x3C,0x0F,0x3C,0x0F,0x3C,0x0F,0x3C,0x1F,0x3C,0x0F,0x3F,0xFF,0x1F,0xFC,
+ 904          0x0F,0xFE,0x00,0x0F,0x00,0x1F,0x00,0x1F,0x00,0x1E,0x00,0x1E,0x00,0x1E,0x0F,0xFE,
+ 905          0x1F,0xFE,0x7F,0xFC,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 906          /*--  文字:  -  --*/
+ 907          /*--  DS-Digital24;  此字体下对应的点阵为：宽x高=15x31   --*/
+ 908          /*--  宽度不是8的倍数，现调整为：宽度x高度=16x31  --*/
+ 909          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 910          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x3F,0xFC,0x7F,0xFE,
+ 911          0x3F,0xFC,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 912          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 913          };
+ 914          
+ 915          
+ 916          Uchar code  num_24x48[11][144]={
+ 917          /*--  文字:  0  --*/
+ 918          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+ 919          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 920          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x7E,0x00,0x01,0xE7,0x80,0x03,0xC3,
+ 921          0xC0,0x07,0x81,0xE0,0x0F,0x80,0xF0,0x0F,0x00,0xF0,0x1F,0x00,0xF8,0x1E,0x00,0xF8,
+ 922          0x3E,0x00,0x78,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 16  
+
+ 923          0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,
+ 924          0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x78,
+ 925          0x1E,0x00,0xF8,0x1F,0x00,0xF8,0x0F,0x00,0xF0,0x0F,0x81,0xF0,0x07,0x81,0xE0,0x03,
+ 926          0xC3,0xC0,0x01,0xE7,0x80,0x00,0x7E,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 927          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 928          /*--  文字:  1  --*/
+ 929          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+ 930          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 931          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0C,0x00,0x00,0x1C,0x00,0x00,0x7C,
+ 932          0x00,0x07,0xFC,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,
+ 933          0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,
+ 934          0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,
+ 935          0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,
+ 936          0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,0x3C,0x00,0x00,
+ 937          0x3E,0x00,0x00,0x7F,0x00,0x07,0xFF,0xF0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 938          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 939          /*--  文字:  2  --*/
+ 940          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+ 941          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 942          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0x00,0x03,0xC7,0xC0,0x07,0x01,
+ 943          0xE0,0x0E,0x00,0xF0,0x1E,0x00,0xF8,0x1E,0x00,0xF8,0x3E,0x00,0x78,0x3E,0x00,0x78,
+ 944          0x3F,0x00,0x78,0x3F,0x00,0x78,0x1F,0x00,0xF8,0x00,0x00,0xF8,0x00,0x00,0xF0,0x00,
+ 945          0x01,0xF0,0x00,0x03,0xE0,0x00,0x03,0xC0,0x00,0x07,0x80,0x00,0x0F,0x00,0x00,0x1E,
+ 946          0x00,0x00,0x3C,0x00,0x00,0x78,0x00,0x00,0xF0,0x00,0x01,0xE0,0x00,0x03,0xC0,0x00,
+ 947          0x07,0x80,0x1C,0x07,0x00,0x1C,0x0E,0x00,0x38,0x1C,0x00,0x38,0x3C,0x00,0x78,0x3F,
+ 948          0xFF,0xF8,0x3F,0xFF,0xF8,0x3F,0xFF,0xF8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 949          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 950          /*--  文字:  3  --*/
+ 951          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+ 952          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 953          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFE,0x00,0x07,0x87,0x80,0x0F,0x03,
+ 954          0xC0,0x1E,0x01,0xE0,0x1E,0x01,0xF0,0x1E,0x01,0xF0,0x1F,0x00,0xF0,0x1F,0x00,0xF0,
+ 955          0x1E,0x00,0xF0,0x00,0x00,0xF0,0x00,0x01,0xF0,0x00,0x01,0xF0,0x00,0x03,0xE0,0x00,
+ 956          0x03,0xC0,0x00,0x0F,0x00,0x00,0xFE,0x00,0x00,0x07,0x80,0x00,0x01,0xE0,0x00,0x00,
+ 957          0xF0,0x00,0x00,0xF8,0x00,0x00,0xF8,0x00,0x00,0x78,0x00,0x00,0x7C,0x1E,0x00,0x7C,
+ 958          0x3F,0x00,0x7C,0x3F,0x00,0x7C,0x3F,0x00,0x78,0x3E,0x00,0xF8,0x1E,0x00,0xF0,0x0F,
+ 959          0x01,0xE0,0x07,0x87,0xC0,0x01,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 960          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 961          /*--  文字:  4  --*/
+ 962          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+ 963          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 964          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x03,0xC0,0x00,0x03,0xC0,0x00,0x07,
+ 965          0xC0,0x00,0x0F,0xC0,0x00,0x0F,0xC0,0x00,0x1F,0xC0,0x00,0x3F,0xC0,0x00,0x3F,0xC0,
+ 966          0x00,0x77,0xC0,0x00,0x77,0xC0,0x00,0xE7,0xC0,0x01,0xC7,0xC0,0x01,0xC7,0xC0,0x03,
+ 967          0x87,0xC0,0x07,0x07,0xC0,0x07,0x07,0xC0,0x0E,0x07,0xC0,0x1E,0x07,0xC0,0x1C,0x07,
+ 968          0xC0,0x38,0x07,0xC0,0x38,0x07,0xC0,0x7F,0xFF,0xFE,0x7F,0xFF,0xFE,0x00,0x07,0xC0,
+ 969          0x00,0x07,0xC0,0x00,0x07,0xC0,0x00,0x07,0xC0,0x00,0x07,0xC0,0x00,0x07,0xC0,0x00,
+ 970          0x07,0xC0,0x00,0x07,0xE0,0x00,0x7F,0xFE,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 971          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 972          /*--  文字:  5  --*/
+ 973          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+ 974          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 975          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0F,0xFF,0xF8,0x0F,0xFF,0xF8,0x0F,0xFF,
+ 976          0xF8,0x0E,0x00,0x00,0x0E,0x00,0x00,0x0E,0x00,0x00,0x0E,0x00,0x00,0x0E,0x00,0x00,
+ 977          0x0E,0x00,0x00,0x0E,0x00,0x00,0x0E,0x00,0x00,0x0E,0x7F,0x00,0x0D,0xFF,0xC0,0x0F,
+ 978          0xC3,0xE0,0x1F,0x01,0xF0,0x1E,0x00,0xF8,0x1E,0x00,0xF8,0x00,0x00,0x78,0x00,0x00,
+ 979          0x7C,0x00,0x00,0x7C,0x00,0x00,0x7C,0x00,0x00,0x7C,0x1E,0x00,0x7C,0x3F,0x00,0x7C,
+ 980          0x3F,0x00,0x78,0x3F,0x00,0x78,0x3E,0x00,0xF8,0x1E,0x00,0xF0,0x1E,0x01,0xF0,0x0E,
+ 981          0x01,0xE0,0x07,0x87,0xC0,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 982          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 983          /*--  文字:  6  --*/
+ 984          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 17  
+
+ 985          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 986          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x3F,0xC0,0x00,0xF1,0xE0,0x03,0xC1,
+ 987          0xF0,0x07,0x81,0xF8,0x07,0x01,0xF8,0x0F,0x00,0xF0,0x1F,0x00,0x00,0x1E,0x00,0x00,
+ 988          0x1E,0x00,0x00,0x3E,0x00,0x00,0x3E,0x00,0x00,0x3E,0x00,0x00,0x3E,0x3F,0x80,0x3E,
+ 989          0xFF,0xE0,0x3F,0xE3,0xF0,0x3F,0x80,0xF8,0x3F,0x00,0xF8,0x3F,0x00,0x7C,0x3E,0x00,
+ 990          0x7C,0x3E,0x00,0x7C,0x3E,0x00,0x3C,0x3E,0x00,0x3C,0x3E,0x00,0x3C,0x3E,0x00,0x3C,
+ 991          0x3E,0x00,0x7C,0x1E,0x00,0x7C,0x1F,0x00,0x78,0x0F,0x00,0x78,0x0F,0x80,0xF0,0x07,
+ 992          0xC0,0xE0,0x03,0xE3,0xC0,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 993          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 994          /*--  文字:  7  --*/
+ 995          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+ 996          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 997          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0xFF,0xFC,0x1F,0xFF,0xFC,0x1F,0xFF,
+ 998          0xF8,0x1F,0x00,0x38,0x1C,0x00,0x70,0x1C,0x00,0xE0,0x38,0x00,0xE0,0x38,0x01,0xC0,
+ 999          0x00,0x01,0xC0,0x00,0x03,0x80,0x00,0x03,0x80,0x00,0x07,0x80,0x00,0x07,0x00,0x00,
+1000          0x0F,0x00,0x00,0x0E,0x00,0x00,0x1E,0x00,0x00,0x1E,0x00,0x00,0x3C,0x00,0x00,0x3C,
+1001          0x00,0x00,0x3C,0x00,0x00,0x7C,0x00,0x00,0x78,0x00,0x00,0x78,0x00,0x00,0xF8,0x00,
+1002          0x00,0xF8,0x00,0x00,0xF8,0x00,0x00,0xF8,0x00,0x00,0xF8,0x00,0x00,0xF8,0x00,0x00,
+1003          0xF8,0x00,0x00,0xF8,0x00,0x00,0x78,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1004          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1005          /*--  文字:  8  --*/
+1006          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+1007          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1008          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0x00,0x07,0xC3,0xC0,0x0F,0x00,
+1009          0xE0,0x1E,0x00,0xF0,0x1E,0x00,0x78,0x3C,0x00,0x78,0x3C,0x00,0x78,0x3C,0x00,0x7C,
+1010          0x3E,0x00,0x78,0x3E,0x00,0x78,0x1F,0x00,0x78,0x1F,0x80,0xF0,0x0F,0xE1,0xE0,0x07,
+1011          0xFB,0xC0,0x01,0xFF,0x80,0x01,0xFF,0x80,0x07,0xBF,0xC0,0x0F,0x0F,0xE0,0x1E,0x03,
+1012          0xF0,0x3E,0x01,0xF8,0x3C,0x00,0xF8,0x3C,0x00,0x7C,0x7C,0x00,0x7C,0x78,0x00,0x3C,
+1013          0x78,0x00,0x3C,0x7C,0x00,0x3C,0x3C,0x00,0x78,0x3C,0x00,0x78,0x1E,0x00,0x70,0x0F,
+1014          0x00,0xE0,0x07,0xC3,0xC0,0x01,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1015          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1016          /*--  文字:  9  --*/
+1017          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+1018          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1019          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0xFE,0x00,0x07,0xC7,0x80,0x0F,0x01,
+1020          0xE0,0x1E,0x01,0xE0,0x1E,0x00,0xF0,0x3E,0x00,0xF8,0x3C,0x00,0x78,0x3C,0x00,0x78,
+1021          0x7C,0x00,0x7C,0x7C,0x00,0x7C,0x7C,0x00,0x7C,0x7C,0x00,0x7C,0x7C,0x00,0x7C,0x3C,
+1022          0x00,0xFC,0x3E,0x00,0xFC,0x3E,0x01,0xFC,0x1F,0x03,0xFC,0x1F,0x8F,0xFC,0x0F,0xFF,
+1023          0x7C,0x03,0xFC,0x7C,0x00,0x00,0x7C,0x00,0x00,0xF8,0x00,0x00,0xF8,0x00,0x00,0xF8,
+1024          0x00,0x00,0xF0,0x00,0x01,0xF0,0x0F,0x01,0xE0,0x1F,0x01,0xE0,0x1F,0x03,0xC0,0x1F,
+1025          0x07,0x80,0x0F,0x9F,0x00,0x03,0xFC,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1026          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1027          /*--  文字:  :  --*/
+1028          /*--  宋体36;  此字体下对应的点阵为：宽x高=24x48   --*/
+1029          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1030          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1031          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1032          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x7C,0x00,0x00,0x7E,0x00,0x00,0xFE,0x00,0x00,
+1033          0xFE,0x00,0x00,0x7E,0x00,0x00,0x7C,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1034          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1035          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x7C,0x00,0x00,0x7E,0x00,0x00,0xFE,0x00,0x00,
+1036          0xFE,0x00,0x00,0x7E,0x00,0x00,0x7C,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1037          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+1038          };
+*** WARNING C316 IN LINE 1038 OF Display.c: unterminated conditionals
+*** WARNING C290 IN LINE 91 OF DISPLAY.C: missing return value
+*** WARNING C290 IN LINE 131 OF DISPLAY.C: missing return value
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   5433    ----
+   CONSTANT SIZE    =   2545    ----
+C51 COMPILER V9.00   DISPLAY                                                               12/26/2017 17:20:19 PAGE 18  
+
+   XDATA SIZE       =    116    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  3 WARNING(S),  0 ERROR(S)

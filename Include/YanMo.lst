@@ -1,0 +1,340 @@
+C51 COMPILER V9.00   YANMO                                                                 12/26/2017 17:23:43 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE YANMO
+OBJECT MODULE PLACED IN .\output\YanMo.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE YanMo.C LARGE OPTIMIZE(0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJ
+                    -ECTEXTEND PRINT(.\Include\YanMo.lst) OBJECT(.\output\YanMo.obj)
+
+line level    source
+
+   1          /** * 
+   2          *----------Dragon be here!----------/ 
+   3          * 　　　┏┓　　　┏┓ 
+   4          * 　　┏┛┻━━━┛┻┓ 
+   5          * 　　┃　　　　　　　┃ 
+   6          * 　　┃　　　━　　　┃ 
+   7          * 　　┃　┳┛　┗┳　┃ 
+   8          * 　　┃　　　　　　　┃ 
+   9          * 　　┃　　　┻　　　┃ 
+  10          * 　　┃　　　　　　　┃ 
+  11          * 　　┗━┓　　　┏━┛ 
+  12          * 　　　　┃　　　┃神兽保佑 
+  13          * 　　　　┃　　　┃代码无BUG！ 
+  14          * 　　　　┃　　　┗━━━┓ 
+  15          * 　　　　┃　　　　　　　┣┓ 
+  16          * 　　　　┃　　　　　　　┏┛ 
+  17          * 　　　　┗┓┓┏━┳┓┏┛ 
+  18          * 　　　　　┃┫┫　┃┫┫ 
+  19          * 　　　　　┗┻┛　┗┻┛ 
+  20          * ━━━━━━神兽出没━━━━━━by:dingyuan */
+  21          
+  22          #include "SmartM_8051.h"
+  23          #include <rtx51tny.h>                 /* RTX-51 tiny functions & defines      */
+  24          
+  25          
+  26          
+  27          //#define KEY_PORT            P1     //按键IO
+  28          //#define KEY_PORT_MASK       0xFC   //按键掩码，使用2.3.4.5.6.7六个管脚
+  29          #define KEY_SEARCH_STATUS   0      //查询按键状态
+  30          #define KEY_ACK_STATUS      1      //确认按键状态
+  31          #define KEY_REALEASE_STATUS 2      //释放按键状态
+  32          
+  33          
+  34          extern UINT8  MOTO_STATE;
+  35          extern UINT16 RUN_TIME,RUN_TIME_TEMP,MOTOR_SPEED;
+  36          extern void PWMInit(UINT8 ucPwmClock);
+  37          extern void Pwm_Run();
+  38          extern void Pwm_Stop();
+  39          extern void Pwm_Start();
+  40          extern void KeyGet(VOID);
+  41          extern void LCDInit();
+  42          extern void Display_Time1();
+  43          extern void KeyInit();
+  44          extern void Diaplay_SUB();
+  45          extern void Timer3Init();
+  46          extern void BEEP(UINT8 cycle,UINT8 beep);
+  47          
+  48          UINT8  CCS[8];
+  49          
+  50          struct time ctime = { 12,  0,  0 };   /* storage for clock time values        */
+  51          unsigned long counter0=0;  
+  52          
+  53          
+  54          /****************************************
+C51 COMPILER V9.00   YANMO                                                                 12/26/2017 17:23:43 PAGE 2   
+
+  55          *函数名称:Data_Moto_Speed_Init
+  56          *输    入:无
+  57          *输    出:无
+  58          *功    能:电机工作数据初始化，从FLAH中读出速度和工作时间参数
+  59          ******************************************/
+  60          VOID Data_Moto_Speed_Init(VOID)
+  61          { 
+  62   1      
+  63   1                      UINT8 time_low,time_high;
+  64   1                      UINT8 speed_low,speed_high;     
+  65   1                      Delay(10); 
+  66   1                      
+  67   1                      RUN_TIME=99;
+  68   1                      time_high=RUN_TIME>>8;
+  69   1                      time_low=RUN_TIME;
+  70   1                      speed_high=0x03;
+  71   1                      speed_low=0xE8;         
+  72   1                      
+  73   1      //      //第一次写芯片时用于写入EEPROM时间数据  写入EEPROM速度数据                              
+  74   1      //      IapEraseSector(TIME_HIGH_ADDRESS);    //扇区擦除
+  75   1      //      IapEraseSector(TIME_LOW_ADDRESS);    //扇区擦除
+  76   1      //      IapEraseSector(SPEED_HIGH_ADDRESS);    //扇区擦除
+  77   1      //      IapEraseSector(SPEED_LOW_ADDRESS);    //扇区擦除
+  78   1      //      Delay(10);  //擦除扇区需要点延时，保证完成最好检测下返回值是否FF;
+  79   1      //      IapProgramByte(TIME_HIGH_ADDRESS, time_high);                   // 写入存贮时间数据的高八位;
+  80   1      //      IapProgramByte(TIME_LOW_ADDRESS, time_low);                             // 读取存贮时间数据的低八位;
+  81   1      //      IapProgramByte(SPEED_HIGH_ADDRESS,speed_high );
+  82   1      //      IapProgramByte(SPEED_LOW_ADDRESS,speed_low );
+  83   1      //      Delay(10);  
+  84   1      //              
+  85   1                      time_high=(IapReadByte(TIME_HIGH_ADDRESS));
+  86   1                      time_low=(IapReadByte(TIME_LOW_ADDRESS));
+  87   1                      speed_high=(IapReadByte(SPEED_HIGH_ADDRESS));
+  88   1                      speed_low=(IapReadByte(SPEED_LOW_ADDRESS));
+  89   1                      
+  90   1                      
+  91   1                      RUN_TIME=(time_high<<8)|(time_low);                     //合并成16位数据格式
+  92   1                      RUN_TIME_TEMP=RUN_TIME;
+  93   1                      MOTOR_SPEED=(speed_high<<8)|(speed_low);        
+  94   1      //              MOTOR_SPEED=1620;               
+  95   1      
+  96   1          Delay(100);         
+  97   1      }
+  98          
+  99          /******************************************************************************/
+ 100          /*        Task 0 'init': Initialize   初始化后 消灭本线程                      */
+ 101          /******************************************************************************/
+ 102          void init (void) _task_ INIT     /* program execution starts here        */
+ 103          {    
+ 104   1      //               LED1=1;
+ 105   1                   LED2=1;
+ 106   1      //               Bell_Run;
+ 107   1                       BELL=1;
+ 108   1                       MOTOR_DISABLE;
+ 109   1         
+ 110   1                       UartInit (9600);                     /* 初始化PWM时钟，指定管脚输出     */     
+ 111   1                       PWMInit(SYSCLK_DIV_2);
+ 112   1                       KeyInit();                                     //按键初始化 P3？？？？
+ 113   1                       LCDInit();                                     //192 64 串口液晶初始化
+ 114   1                       Timer3Init();                  //计数器初始化
+ 115   1              
+ 116   1      //                              sprintf(CCS, "%u", TL3); 
+C51 COMPILER V9.00   YANMO                                                                 12/26/2017 17:23:43 PAGE 3   
+
+ 117   1      //                              UartSendStr("TL3:");
+ 118   1      //                              UartSendStr(CCS);       
+ 119   1      //               IRQ_ENABLE();
+ 120   1              
+ 121   1      //                      RUN_TIME=820;                           //      调试用
+ 122   1      //                      MOTOR_SPEED=500;
+ 123   1                              Data_Moto_Speed_Init();
+ 124   1                              MOTO_STATE=MOTO_STOP;  
+ 125   1                              BELL=0;
+ 126   1      //                  Bell_Stop;
+ 127   1                              Diaplay_Init();
+*** WARNING C206 IN LINE 127 OF YANMO.C: 'Diaplay_Init': missing function-prototype
+ 128   1      //                                      if(TIME_UP){
+ 129   1      //                                                      UartSendStr("TIME_UP high"); 
+ 130   1      //
+ 131   1      //                                      }else
+ 132   1      //                                      {
+ 133   1      //                                                      UartSendStr("TIME_UP low"); 
+ 134   1      //                                      }
+ 135   1      //                      
+ 136   1      //                                      if(TIME_DOWN){
+ 137   1      //                                                      UartSendStr("TIME_DOWN high"); 
+ 138   1      //
+ 139   1      //                                      }else
+ 140   1      //                                      {
+ 141   1      //                                                      UartSendStr("TIME_DOWN low"); 
+ 142   1      //                                      }
+ 143   1                              
+ 144   1                              
+ 145   1                              Display_Time1();
+ 146   1      //                      UartSendStr("Initialize scuess!"); 
+ 147   1               
+ 148   1                              os_create_task (CLOCK);             /* start clock task                     */
+ 149   1                              os_create_task (DISPLAY);           /* start command task                   */
+ 150   1                              os_create_task (MOTO);            /* start lights task                    */
+ 151   1                              os_create_task (KEYREAD);           /* start keyread task                   */
+ 152   1      //                      os_create_task (COUNTER);           /* start keyread task                   */
+ 153   1                              os_delete_task (INIT);              /* stop init task (no longer needed)    *///  
+ 154   1      
+ 155   1      }
+ 156          
+ 157          
+ 158          /******************************************************************************/
+ 159          /*        Task 2 'clock'      基本时钟线程 ，基本时间片5MS                      */
+ 160          /******************************************************************************/
+ 161          void clock (void)  _task_ CLOCK  
+ 162          {
+ 163   1        while (1)  
+ 164   1                      {                        /* 时钟显示             */
+ 165   2                                              if (++ctime.sec == 60)  
+ 166   2                                        {         /* calculate the second                 */
+ 167   3                                                              ctime.sec = 0;
+ 168   3                                                              if (++ctime.min == 60)  
+ 169   3                                                              {       /* calculate the minute                 */
+ 170   4                                                                              ctime.min = 0;
+ 171   4                                                                              if (++ctime.hour == 24)  
+ 172   4                                                                              {    /* calculate the hour                   */
+ 173   5                                                                                      ctime.hour = 0;
+ 174   5                                                                              }
+ 175   4                                                               }
+ 176   3                                              }
+ 177   2                                              
+C51 COMPILER V9.00   YANMO                                                                 12/26/2017 17:23:43 PAGE 4   
+
+ 178   2                                              if((MOTO_STATE==MOTO_RUN)||(MOTO_STATE==MOTO_START)){
+ 179   3                                                                      RUN_TIME--;                             //      倒计时
+ 180   3      //                                                              BELL=!BELL;
+ 181   3      //                                                              os_send_signal (COUNTER);  
+ 182   3                                              }
+ 183   2      
+ 184   2                                              
+ 185   2                                              if(RUN_TIME<=0) //      倒计时归零，恢复待机状态
+ 186   2                                              {
+ 187   3                                                      MOTO_STATE=MOTO_STOP;           //状态机恢复停机状态
+ 188   3                                                      RUN_TIME=RUN_TIME_TEMP; //时间恢复初始
+ 189   3                                                      Display_Time1();                                //刷新液晶，恢复初始
+ 190   3                                                      
+ 191   3                                              }
+ 192   2                                              
+ 193   2      //                                      if(MOTO_STATE==MOTO_STOP)       
+ 194   2      //                                                      UartSendStr("MOTO_STOP !");  
+ 195   2      //                                      else if (MOTO_STATE==MOTO_RUN)
+ 196   2      //                                                      UartSendStr("MOTO_RUN !");  
+ 197   2      //                                      else if (MOTO_STATE==MOTO_START)
+ 198   2      //                                                      UartSendStr("MOTO_START !");  
+ 199   2      //                                      else if (MOTO_STATE==MOTO_PASUE)
+ 200   2      //                                                      UartSendStr("MOTO_PASUE !");  
+ 201   2      //                                      else if (MOTO_STATE==MOTO_ERROR)
+ 202   2      //                                                      UartSendStr("MOTO_ERROR !");  
+ 203   2      //                                      else if (MOTO_STATE==LID_UP)
+ 204   2      //                                                      UartSendStr("LID_UP !");  
+ 205   2      //                                      else
+ 206   2      //                                                      UartSendStr("wrong  state!");  
+ 207   2                                                      
+ 208   2                                              
+ 209   2      //                                              BELL=!BELL;
+ 210   2                                                      LED2            =!LED2;//       呼吸灯，不一定用   
+ 211   2                                                      os_wait (K_IVL, 200, 0);          /* 等待1秒钟，注意受其它线程影响，时间并不精确       */
+ 212   2        }
+ 213   1      }
+ 214          
+ 215          /******************************************************************************/
+ 216          /*        Task 3 'COUNTER': 电机转速测量，由CLOCK每秒触发一次   */
+ 217          /******************************************************************************/
+ 218          //void counter (void) _task_ COUNTER  
+ 219          //{
+ 220          //UINT16 ttemp;
+ 221          //UINT32 temp;
+ 222          //  while (1)  {    
+ 223          //                      os_wait (K_SIG, 0, 0);            /* wait for signal                      */            
+ 224          //                      if(length==0)
+ 225          //                      {
+ 226          //                              UartSendStr("Moto Work Error");
+ 227          //                      }else{
+ 228          ////                                            
+ 229          ////                            UartSendByte(0xFF);
+ 230          ////                            UartSendByte(length>>16);
+ 231          ////                            UartSendByte(length>>8);
+ 232          ////                            UartSendByte(length);
+ 233          ////                            计算电机工作周期时长，12000=12个晶振周期为一个单片机周期*1000 单位毫秒
+ 234          //                              //length脉冲宽度，计数个数
+ 235          //                              moto_real_time=length/12;                       //
+ 236          //                              UartSendByte(moto_real_time>>16);
+ 237          //                              UartSendByte(moto_real_time>>8);
+ 238          //                              UartSendByte(moto_real_time);
+ 239          //                              
+C51 COMPILER V9.00   YANMO                                                                 12/26/2017 17:23:43 PAGE 5   
+
+ 240          //                              temp=60000000/moto_real_time;   
+ 241          ////                            temp=100000/moto_real_time;     //60000000/moto_real_time;                              //  转换成速度/分
+ 242          //                              MOTOR_SPEED=temp;                                                                       //16位方便输出
+ 243          //                              UartSendByte(temp);
+ 244          //                              UartSendByte(temp>>8);
+ 245          //                              
+ 246          //                              Display_Time1();
+ 247          //                      }
+ 248          //  }
+ 249          //}
+ 250          /******************************************************************************/
+ 251          /*      Task 4 'moto': 电机PWM线程，利用PCA功能模块 */
+ 252          /******************************************************************************/
+ 253          void moto (void) _task_ MOTO  
+ 254          {            /* moto pwm output operation     */
+ 255   1        while (1)  {                    
+ 256   2      //                      counter0++;                            
+ 257   2      //              UartSendByte(counter0);
+ 258   2                              if(!LID_UP)
+ 259   2                              {
+ 260   3                                              MOTO_STATE=MOTO_PASUE;                  
+ 261   3                                              UartSendStr("_PASUE !");  
+ 262   3                              }
+ 263   2                              
+ 264   2                              
+ 265   2                              if(MOTO_STATE==MOTO_START)
+ 266   2                              {
+ 267   3                                              Pwm_Start();
+ 268   3                              }else if(MOTO_STATE==MOTO_RUN){
+ 269   3                                              Pwm_Run();
+ 270   3                              }else if(MOTO_STATE==MOTO_PASUE){
+ 271   3                                              Pwm_Stop();
+ 272   3                              }else if(MOTO_STATE==MOTO_STOP){
+ 273   3                                              Pwm_Stop();
+ 274   3                              }else if(MOTO_STATE==MOTO_ERROR){  
+ 275   3                                              BEEP(1,200);    
+ 276   3                                              Pwm_Stop();
+ 277   3                              }else
+ 278   2                              {
+ 279   3                              }
+ 280   2      //                                      UartSendStr("PWM Started!"); 
+ 281   2                              os_wait (K_IVL, 20, 0);                 //100ms
+ 282   2                      }                       
+ 283   1      }
+ 284          /******************************************************************************/
+ 285          /*        Task 5 'keyread': 按键线程，30时间150MS基本合适   */
+ 286          /******************************************************************************/
+ 287          void keyread (void) _task_ KEYREAD  
+ 288          {
+ 289   1                      while (1)  {                     
+ 290   2                              KeyGet();
+ 291   2                              os_wait (K_TMO, 30, 0);                    
+ 292   2                      }
+ 293   1      }
+ 294          /******************************************************************************/
+ 295          /*        Task 5 'keyread': process key stroke from pedestrian push button    */
+ 296          /******************************************************************************/
+ 297          void    display (void) _task_ DISPLAY 
+ 298          {
+ 299   1                      while (1)  
+ 300   1                      {      
+ 301   2                                      Diaplay_SUB();
+C51 COMPILER V9.00   YANMO                                                                 12/26/2017 17:23:43 PAGE 6   
+
+ 302   2                                      os_wait (K_TMO, 200, 0);  
+ 303   2                      }
+ 304   1      }
+*** WARNING C316 IN LINE 304 OF YanMo.C: unterminated conditionals
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    533    ----
+   CONSTANT SIZE    =      9    ----
+   XDATA SIZE       =     19    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

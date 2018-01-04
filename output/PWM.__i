@@ -1,0 +1,1 @@
+"PWM.c" LARGE OPTIMIZE (0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJECTEXTEND PRINT(.\Include\PWM.lst) OBJECT(.\output\PWM.obj)

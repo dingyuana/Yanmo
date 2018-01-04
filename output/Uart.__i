@@ -1,0 +1,1 @@
+"Uart.c" LARGE OPTIMIZE (0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJECTEXTEND PRINT(.\Include\Uart.lst) OBJECT(.\output\Uart.obj)

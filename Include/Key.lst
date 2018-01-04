@@ -1,0 +1,487 @@
+C51 COMPILER V9.00   KEY                                                                   12/26/2017 17:20:19 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN .\output\Key.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Key.c LARGE OPTIMIZE(0,SPEED) BROWSE INCDIR(.\Common;.\Include) DEBUG OBJEC
+                    -TEXTEND PRINT(.\Include\Key.lst) OBJECT(.\output\Key.obj)
+
+line level    source
+
+   1          #include "SmartM_8051.h"
+   2          extern VOID KeyGet(VOID);
+   3          extern void Pwm_Run();
+   4          
+   5          //按键状态机
+   6          
+   7          #define KEY_PRESS_LOW                           0
+   8          #define KEY_PRESS_HIGH                  1
+   9          
+  10          UINT8 KEY_PRESS_STATE=KEY_PRESS_LOW;
+  11          
+  12          //#define KEY_SEARCH_STATUS   0      //查询按键状态
+  13          //#define KEY_ACK_STATUS      1      //确认按键状态
+  14          //#define KEY_REALEASE_STATUS 2      //释放按键状态
+  15          
+  16          #define Time_Up                 0x04
+  17          #define Time_Down               0x08
+  18          #define Speed_Up                0x10
+  19          #define Speed_Down              0x20
+  20          #define Start_Button  0x40
+  21          #define Stop_Button   0x80
+  22          
+  23          //用于检测按键的变量
+  24          UINT8 Trg;              
+  25          UINT8 Cont;
+  26          UINT i=0;                               //连续按键计数
+  27          //UINT8  CC[4];
+  28          
+  29          
+  30          UINT8  MOTO_STATE;
+  31          UINT16 RUN_TIME,MOTOR_SPEED,RUN_TIME_TEMP;
+  32          
+  33          UINT8 time_low,time_high;
+  34          UINT8 speed_low,speed_high;
+  35          //STATIC UINT8  g_szTempBuf[4]={0},g_szTemp[2];
+  36          /****************************************
+  37          *函数名称:Write_Data_Flash
+  38          *输    入:无
+  39          *输    出:无
+  40          *功    能:速度时间数据写入FLASH中
+  41          ******************************************/
+  42          Write_Data_Flash()
+  43          {
+  44   1                                      time_high=RUN_TIME_TEMP>>8;
+  45   1                                      time_low=RUN_TIME_TEMP;
+  46   1                    speed_high=(UINT8)(MOTOR_SPEED>>8);
+  47   1                                      speed_low=(UINT8)MOTOR_SPEED;
+  48   1                                      Delay(10);              
+  49   1                                      UartSendByte(speed_high);
+  50   1                                      Delay(10);     
+  51   1                                      UartSendByte(speed_low); 
+  52   1                                      Delay(10); 
+  53   1      
+  54   1                                      IapEraseSector(TIME_HIGH_ADDRESS);    //扇区擦除
+C51 COMPILER V9.00   KEY                                                                   12/26/2017 17:20:19 PAGE 2   
+
+  55   1                                      IapEraseSector(TIME_LOW_ADDRESS);    //扇区擦除
+  56   1                                      IapEraseSector(SPEED_HIGH_ADDRESS);    //扇区擦除需要点延时，保证完成最好检测下返回值是否FF;
+  57   1                                      IapEraseSector(SPEED_LOW_ADDRESS);    //扇区擦除
+  58   1                                      Delay(10);   
+  59   1                              
+  60   1                                      IapProgramByte(TIME_HIGH_ADDRESS,time_high);
+  61   1                                      IapProgramByte(TIME_LOW_ADDRESS,time_low);
+  62   1                                      IapProgramByte(SPEED_HIGH_ADDRESS,speed_high);
+  63   1                                      IapProgramByte(SPEED_LOW_ADDRESS,speed_low);
+  64   1                                      
+  65   1                                      UartSendByte(speed_high);
+  66   1                                      Delay(10);     
+  67   1                                      UartSendByte(speed_low); 
+  68   1                                      Delay(10); 
+  69   1              }
+  70          /****************************************
+  71          *函数名称:KeyInit
+  72          *输    入:无
+  73          *输    出:无
+  74          *功    能:按键初始化
+  75          ******************************************/
+  76          VOID KeyInit(VOID)
+  77          {
+  78   1      //     P3M1|=  (1<<2)|(1<<3)|(1<<4)|(1<<5);
+  79   1      //               P3M0&=~((1<<2)|(1<<3)|(1<<4)|(1<<5));
+  80   1           P1M1|=  (1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6)|(1<<8);
+  81   1                       P1M0&=~((1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6)|(1<<7));
+  82   1      }
+  83          /****************************************
+  84          *函数名称:Key_Run
+  85          *输    入:无
+  86          *输    出:无
+  87          *功    能:启动电机按键
+  88          ******************************************/
+  89          VOID Key_Run(VOID)
+  90          {       
+  91   1                      if(MOTO_STATE==MOTO_STOP)
+  92   1                      {
+  93   2                                              RUN_TIME=RUN_TIME_TEMP; 
+  94   2                                              UartSendStr("_RUN!");  
+  95   2                      }
+  96   1                       MOTO_STATE=MOTO_START;         //MOTO_RUN;     
+  97   1      }
+  98          /****************************************
+  99          *函数名称:Key_Stop
+ 100          *输    入:无
+ 101          *输    出:无
+ 102          *功    能:停止电机按键
+ 103          ******************************************/
+ 104          VOID Key_Stop(VOID)
+ 105          {
+ 106   1              if((MOTO_STATE==MOTO_RUN))
+ 107   1              {
+ 108   2                                      MOTO_STATE=MOTO_PASUE;                  
+ 109   2                                      UartSendStr("_PASUE !");  
+ 110   2              }else if((MOTO_STATE==MOTO_PASUE)||(MOTO_STATE==MOTO_ERROR)|(MOTO_STATE==MOTO_START))
+ 111   1              {
+ 112   2                                      MOTO_STATE=MOTO_STOP;                   
+ 113   2                                              UartSendStr("_STOP!");  
+ 114   2                                      RUN_TIME=RUN_TIME_TEMP;
+ 115   2              }else{
+ 116   2              }
+C51 COMPILER V9.00   KEY                                                                   12/26/2017 17:20:19 PAGE 3   
+
+ 117   1      
+ 118   1      }
+ 119          /****************************************
+ 120          *函数名称:Key_SpeedUp
+ 121          *输    入:无
+ 122          *输    出:无
+ 123          *功    能: 速度增加按键
+ 124          ******************************************/
+ 125          VOID Key_SpeedUp(VOID)
+ 126          {
+ 127   1      //       LcdFill(20,150,70,200,BLACK);    //KEY3按下
+ 128   1      //else{
+ 129   1                       if(KEY_PRESS_STATE==KEY_PRESS_HIGH)
+ 130   1                       { 
+ 131   2                                      MOTOR_SPEED=MOTOR_SPEED+50;
+ 132   2                       }else if(KEY_PRESS_STATE==KEY_PRESS_LOW){      
+ 133   2                                      MOTOR_SPEED=MOTOR_SPEED+10;
+ 134   2                       }                      
+ 135   1              
+ 136   1                       if(MOTOR_SPEED>=1750)
+ 137   1                       {
+ 138   2                                      MOTOR_SPEED=1750;
+ 139   2                       }       
+ 140   1      //       }
+ 141   1               
+ 142   1      //              sprintf(CC, "%u", MOTOR_SPEED); 
+ 143   1      //                              UartSendStr("SPEED_UP:");
+ 144   1      //                              UartSendStr(CC);        
+ 145   1      
+ 146   1      //            speed_high=(UINT8)(MOTOR_SPEED>>8);
+ 147   1      //                              speed_low=(UINT8)MOTOR_SPEED;
+ 148   1      
+ 149   1                      if(MOTO_STATE==MOTO_RUN)
+ 150   1                      {        
+ 151   2                                      Pwm_Run();
+ 152   2                      }
+ 153   1      
+ 154   1                      if(MOTO_STATE==MOTO_STOP)
+ 155   1                      {
+ 156   2                    speed_high=(UINT8)(MOTOR_SPEED>>8);
+ 157   2                                      speed_low=(UINT8)MOTOR_SPEED;
+ 158   2                                      Write_Data_Flash();
+ 159   2                      }
+ 160   1      }
+ 161          
+ 162          /****************************************
+ 163          *函数名称:Key_Speed_Down
+ 164          *输    入:无
+ 165          *输    出:无
+ 166          *功    能:速度减少按键
+ 167          ******************************************/
+ 168          VOID Key_Speed_Down(VOID)
+ 169          {
+ 170   1                              
+ 171   1                 if(KEY_PRESS_STATE==KEY_PRESS_HIGH)
+ 172   1                              { 
+ 173   2                                              MOTOR_SPEED=MOTOR_SPEED-50;     
+ 174   2                               }else if(KEY_PRESS_STATE==KEY_PRESS_LOW){              
+ 175   2                                              MOTOR_SPEED=MOTOR_SPEED-10;
+ 176   2                               }
+ 177   1                      
+ 178   1                      if(MOTOR_SPEED<=500)
+C51 COMPILER V9.00   KEY                                                                   12/26/2017 17:20:19 PAGE 4   
+
+ 179   1                       {
+ 180   2                                              MOTOR_SPEED=500;
+ 181   2                       }
+ 182   1                      
+ 183   1                      
+ 184   1      //              sprintf(CC, "%u", MOTOR_SPEED); 
+ 185   1      //                              UartSendStr("SPEED_DOWN:");
+ 186   1      //                              UartSendStr(CC);                
+ 187   1              
+ 188   1                      //非运行状态下数据写入FLASH
+ 189   1                      if(MOTO_STATE==MOTO_RUN)
+ 190   1                      {        
+ 191   2                                      Pwm_Run();
+ 192   2                      }
+ 193   1      
+ 194   1                      if(MOTO_STATE==MOTO_STOP)
+ 195   1                      {
+ 196   2                    speed_high=(UINT8)(MOTOR_SPEED>>8);
+ 197   2                                      speed_low=(UINT8)MOTOR_SPEED;
+ 198   2                                      Write_Data_Flash();
+ 199   2                      }
+ 200   1      }
+ 201          /****************************************
+ 202          *函数名称:Key_Time_Up
+ 203          *输    入:无
+ 204          *输    出:无
+ 205          *功    能:时间增加按键
+ 206          ******************************************/
+ 207          VOID Key_Time_Up(VOID)
+ 208          {
+ 209   1                                       if(RUN_TIME_TEMP>=900)
+ 210   1                                       {
+ 211   2                                                              RUN_TIME_TEMP=900;
+ 212   2                                       }else
+ 213   1                                       {
+ 214   2                                                              if(KEY_PRESS_STATE==KEY_PRESS_HIGH)
+ 215   2                                                              { 
+ 216   3                                                                              RUN_TIME_TEMP=RUN_TIME_TEMP+10;
+ 217   3                                                               }else if(KEY_PRESS_STATE==KEY_PRESS_LOW){              
+ 218   3                                                                              RUN_TIME_TEMP=RUN_TIME+1;
+ 219   3                                                               }
+ 220   2                                       }
+ 221   1      //                              sprintf(CC, "%u", RUN_TIME_TEMP); 
+ 222   1      //                              UartSendStr("TIME_UP:");
+ 223   1      //                              UartSendStr(CC);        
+ 224   1      //                               
+ 225   1                                       Write_Data_Flash();
+ 226   1                                       RUN_TIME=RUN_TIME_TEMP;        
+ 227   1                      
+ 228   1      }
+ 229          /****************************************
+ 230          *函数名称:Key_Time_Down
+ 231          *输    入:无
+ 232          *输    出:无
+ 233          *功    能:时间减少按键
+ 234          ******************************************/
+ 235          VOID Key_Time_Down(VOID)
+ 236          {
+ 237   1      
+ 238   1                                       if(RUN_TIME_TEMP<=10)
+ 239   1                                       {
+ 240   2                                                              RUN_TIME_TEMP=10;
+C51 COMPILER V9.00   KEY                                                                   12/26/2017 17:20:19 PAGE 5   
+
+ 241   2                                       }else
+ 242   1                                       {
+ 243   2                                                              if(KEY_PRESS_STATE==KEY_PRESS_HIGH)
+ 244   2                                                              { 
+ 245   3                                                                              RUN_TIME_TEMP=RUN_TIME_TEMP-10;
+ 246   3                                                               }else if(KEY_PRESS_STATE==KEY_PRESS_LOW){              
+ 247   3                                                                              RUN_TIME_TEMP=RUN_TIME_TEMP-1;
+ 248   3                                                               }
+ 249   2                                       }      
+ 250   1      //                              sprintf(CC, "%u", RUN_TIME_TEMP); 
+ 251   1      //                              UartSendStr("TIME_UP:");
+ 252   1      //                              UartSendStr(CC);        
+ 253   1                                       
+ 254   1                                       Write_Data_Flash();
+ 255   1                                       RUN_TIME=RUN_TIME_TEMP;
+ 256   1                      
+ 257   1      }
+ 258          /****************************************
+ 259          *函数名称:KeyGet
+ 260          *输    入:无
+ 261          *输    出:无
+ 262          *功    能:按键值读取
+ 263          ******************************************/
+ 264          VOID KeyGet(VOID)
+ 265          {
+ 266   1      //          STATIC UINT8 ucKeyStatus=KEY_SEARCH_STATUS;
+ 267   1            UINT8 ucKeyValue=0;
+ 268   1            UINT8 ReadData;// = P3^0xff; 。
+ 269   1                              ucKeyValue=(~KEY_PORT)&KEY_PORT_MASK;           //
+ 270   1                              ReadData= KEY_PORT^KEY_PORT_MASK;   // 1 读P1的端口数据，取反，然后送到ReadData 临时变量里面保存起来
+ 271   1            Trg = ReadData & (ReadData ^ Cont); // 2 算法1，用来计算触发变量的。一个位与操作，一个异或操作
+ 272   1            Cont = ReadData; // 3 算法2，用来计算连续变量。
+ 273   1      
+ 274   1                              if(ucKeyValue & (1<<7))
+ 275   1                              {       
+ 276   2                                                      if(MOTO_STATE!=MOTO_STOP)//||(MOTO_STATE==MOTO_RUN))
+ 277   2                                                      {       
+ 278   3                                                                      Key_Stop();
+ 279   3                                                                      Display_Time1();
+*** WARNING C206 IN LINE 279 OF KEY.C: 'Display_Time1': missing function-prototype
+ 280   3                                                      }
+ 281   2                              }
+ 282   1                              
+ 283   1      //                      if(ucKeyValue & (1<<2))
+ 284   1      //                      {                                       
+ 285   1      //                                              if(MOTO_STATE!=MOTO_RUN)
+ 286   1      //                                              {       
+ 287   1      //                                                              Key_Run();
+ 288   1      //                                                              Display_Time1();
+ 289   1      //                                              }
+ 290   1      //                      }
+ 291   1      //                      
+ 292   1                              if(ucKeyValue & (1<<6))
+ 293   1                              {
+ 294   2                                      if (Trg)
+ 295   2                                      {
+ 296   3                                                      i=0;
+ 297   3                                      }                       
+ 298   2                                      if (Cont )              //防抖动
+ 299   2                                      {
+ 300   3                                                      if(i<1)
+ 301   3                                                      {
+C51 COMPILER V9.00   KEY                                                                   12/26/2017 17:20:19 PAGE 6   
+
+ 302   4                                                                      i++;
+ 303   4                                                      }else{
+ 304   4                                                                      if(MOTO_STATE==MOTO_STOP)
+ 305   4                                                                      {
+ 306   5                                                                              Key_Run();
+ 307   5                                                                              Display_Time1();
+ 308   5                                                                      }
+ 309   4                                                      }
+ 310   3                                      }                                                               
+ 311   2                              }
+ 312   1                              
+ 313   1                              //定时功能按键,非运行状态下允许数据修改写入
+ 314   1      //                      if(ucKeyValue & (1<<2))
+ 315   1      ////                    if(Trg & Time_Up)
+ 316   1      //                      {
+ 317   1      //                                              
+ 318   1      ////                                            if(MOTO_STATE!=MOTO_RUN)
+ 319   1      //                                              {       
+ 320   1      //                                                              if (Trg & Time_Up)
+ 321   1      //                                                              {
+ 322   1      //                                                                              KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 323   1      //                                                                              i=0;
+ 324   1      //                                                                              UartSendStr("TIME UP1!");
+ 325   1      //                                                              }                       
+ 326   1      //                                                              if (Cont & Time_Up)             //连续按键状态
+ 327   1      //                                                              {
+ 328   1      //                                                                              if(i<=6)
+ 329   1      //                                                                              {
+ 330   1      //                                                                                              KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 331   1      //                                                                                              i++;
+ 332   1      //                                                                                              UartSendStr("TIME UP2!");
+ 333   1      //                                                                              }else{
+ 334   1      //                                                                                              KEY_PRESS_STATE=KEY_PRESS_HIGH;
+ 335   1      //                                                                                              UartSendStr("TIME UP+++!");
+ 336   1      //                                                                              }
+ 337   1      //                                                              }                       
+ 338   1      //                                                              Key_Time_Up();
+ 339   1      //                                                              Display_Time1();
+ 340   1      //                                              }
+ 341   1      
+ 342   1      //                      }
+ 343   1      
+ 344   1                              if(ucKeyValue & (1<<2))
+ 345   1                              {
+ 346   2                                                      //时间,非运行状态下允许数据修改写入
+ 347   2      //                                              if((MOTO_STATE==MOTO_RUN)|(MOTO_STATE==MOTO_START))
+ 348   2      //                                              {               
+ 349   2      //                                              }else
+ 350   2                                                      if(MOTO_STATE==MOTO_STOP){
+ 351   3                                                                              if (Trg)
+ 352   3                                                                              {
+ 353   4                                                                                              KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 354   4                                                                                              i=0;
+ 355   4      //                                                                              UartSendStr("TIME UP1!");
+ 356   4                                                                              }                       
+ 357   3                                                                              if (Cont )   //连续按键状态
+ 358   3                                                                              {
+ 359   4                                                                                              if(i<=6)
+ 360   4                                                                                              {
+ 361   5                                                                                                              KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 362   5                                                                                                              i++;
+ 363   5      //                                                                                              UartSendStr("TIME UP2!");
+C51 COMPILER V9.00   KEY                                                                   12/26/2017 17:20:19 PAGE 7   
+
+ 364   5                                                                                              }else{
+ 365   5                                                                                                              KEY_PRESS_STATE=KEY_PRESS_HIGH;
+ 366   5                                                                                                      UartSendStr("TIME UP+++!");
+ 367   5                                                                                              }
+ 368   4                                                                              }                       
+ 369   3                                                                              Key_Time_Up();
+ 370   3                                                                              Display_Time1();
+ 371   3                                                      }
+ 372   2                              }
+ 373   1                              
+ 374   1                              if(ucKeyValue & (1<<3))
+ 375   1                              {
+ 376   2                                                      //时间,非运行状态下允许数据修改写入
+ 377   2                                                      if(MOTO_STATE==MOTO_STOP)
+ 378   2                                                      {               
+ 379   3                                                                              if (Trg)
+ 380   3                                                                              {
+ 381   4                                                                                              KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 382   4                                                                                              i=0;
+ 383   4                                                                              }                       
+ 384   3                                                                              if (Cont )   //连续按键状态
+ 385   3                                                                              {
+ 386   4                                                                                              if(i<=6)
+ 387   4                                                                                              {
+ 388   5                                                                                                              KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 389   5                                                                                                              i++;
+ 390   5                                                                                              }else{
+ 391   5                                                                                                              KEY_PRESS_STATE=KEY_PRESS_HIGH;
+ 392   5                                                                                              }
+ 393   4                                                                              }                       
+ 394   3                                                                              Key_Time_Down();
+ 395   3                                                                              Display_Time1();
+ 396   3                                                      }
+ 397   2                              }
+ 398   1                              
+ 399   1      
+ 400   1                              //速度按键,运行状态下允许数据修改，但不写入                     
+ 401   1                              if(ucKeyValue & (1<<4))
+ 402   1                              {
+ 403   2      
+ 404   2                                                                      if (Trg)
+ 405   2                                                                      {
+ 406   3                                                                                      KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 407   3                                                                                      i=0;
+ 408   3                                                                      }                       
+ 409   2                                                                      if (Cont )              //连续按键状态
+ 410   2                                                                      {
+ 411   3                                                                                      if(i<=6)
+ 412   3                                                                                      {
+ 413   4                                                                                                      KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 414   4                                                                                                      i++;
+ 415   4                                                                                      }else{
+ 416   4                                                                                                      KEY_PRESS_STATE=KEY_PRESS_HIGH;
+ 417   4                                                                                      }
+ 418   3                                                                      }                       
+ 419   2                                                                      Key_SpeedUp();
+ 420   2                                                                      Display_Time1();
+ 421   2                                              
+ 422   2                              }
+ 423   1      
+ 424   1                              if(ucKeyValue & (1<<5))
+ 425   1                              {
+C51 COMPILER V9.00   KEY                                                                   12/26/2017 17:20:19 PAGE 8   
+
+ 426   2                                                                              if (Trg)
+ 427   2                                                                              {
+ 428   3                                                                                              KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 429   3                                                                                              i=0;
+ 430   3                                                                              }                       
+ 431   2                                                                              if (Cont )   //连续按键状态
+ 432   2                                                                              {
+ 433   3                                                                                              if(i<=6)
+ 434   3                                                                                              {
+ 435   4                                                                                                              KEY_PRESS_STATE=KEY_PRESS_LOW;
+ 436   4                                                                                                              i++;
+ 437   4                                                                                              }else{
+ 438   4                                                                                                              KEY_PRESS_STATE=KEY_PRESS_HIGH;
+ 439   4                                                                                              }
+ 440   3                                                                              }                       
+ 441   2                                                                              Key_Speed_Down();
+ 442   2                                                                              Display_Time1();
+ 443   2                                                      }
+ 444   1      
+ 445   1      }
+ 446          
+*** WARNING C316 IN LINE 446 OF Key.c: unterminated conditionals
+*** WARNING C290 IN LINE 69 OF KEY.C: missing return value
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1334    ----
+   CONSTANT SIZE    =     34    ----
+   XDATA SIZE       =     18    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  3 WARNING(S),  0 ERROR(S)

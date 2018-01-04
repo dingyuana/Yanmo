@@ -1,0 +1,50 @@
+BL51 BANKED LINKER/LOCATER V6.22                                                        12/23/2017  08:29:41  PAGE 1
+
+
+BL51 BANKED LINKER/LOCATER V6.22, INVOKED BY:
+C:\KEIL_V5\C51\BIN\BL51.EXE .\output\rom_main.obj TO .\output\EEPROM PRINT (.\Listings\EEPROM.m51) RAMSIZE (256)
+
+
+MEMORY MODEL: SMALL
+
+
+INPUT MODULES INCLUDED:
+  .\output\rom_main.obj (ROM_MAIN)
+
+
+LINK MAP OF MODULE:  .\output\EEPROM (ROM_MAIN)
+
+
+            TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
+            -----------------------------------------------------
+
+            * * * * * * *   C O D E   M E M O R Y   * * * * * * *
+            CODE    0000H     0007H     UNIT         ?CO?ROM_MAIN
+
+
+
+OVERLAY MAP OF MODULE:   .\output\EEPROM (ROM_MAIN)
+
+
+SEGMENT
+  +--> CALLED SEGMENT
+---------------------
+
+
+SYMBOL TABLE OF MODULE:  .\output\EEPROM (ROM_MAIN)
+
+  VALUE           TYPE          NAME
+  ----------------------------------
+
+  -------         MODULE        ROM_MAIN
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  C:0000H         PUBLIC        array
+  -------         ENDMOD        ROM_MAIN
+
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?CO?ROM_MAIN
+
+*** WARNING L10: CANNOT DETERMINE ROOT SEGMENT
+
+Program Size: data=0.0 xdata=0 code=7
+LINK/LOCATE RUN COMPLETE.  2 WARNING(S),  0 ERROR(S)

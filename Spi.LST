@@ -1,0 +1,161 @@
+C51 COMPILER V9.00   SPI                                                                   09/02/2017 11:27:13 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SPI
+OBJECT MODULE PLACED IN .\output\Spi.obj
+COMPILER INVOKED BY: d:\Keil\C51\BIN\C51.EXE Spi.c COMPACT WARNINGLEVEL(0) BROWSE INCDIR(..\Common;..\Include) DEBUG OBJ
+                    -ECTEXTEND TABS(2) OBJECT(.\output\Spi.obj)
+
+line level    source
+
+   1          #include "SmartM_8051.h"
+   2          
+   3          
+   4          /************对SPCTL寄存器的设置位宏定义*************/
+   5          #define SSIG    0x80  //SS引脚忽略
+   6          #define SPEN    0x40  //SPI使能位
+   7          #define DORD    0x20  //SPI数据发送LSB最先发送
+   8          #define MSTR    0x10  //主从模式选择
+   9          #define CPOL    0x08  //SPICLK空闲时为高电平
+  10          #define CPHA    0x04  //数据在SPICLK的前时钟沿驱动,并在后时钟沿采样
+  11          #define SP_CLK0 0x00  //SPI时钟频率为CPU_CLK/4
+  12          #define SP_CLK1 0x01  //SPI时钟频率为CPU_CLK/16
+  13          #define SP_CLK2 0x02  //SPI时钟频率为CPU_CLK/64
+  14          #define SP_CLK3 0x03  //SPI时钟频率为CPU_CLK/128
+  15          /************对SPSTAT寄存器的设置位宏定义************/
+  16          #define SPIF    0x80  //传输完成标志
+  17          #define WCOL    0x40  //SPI写冲突标志   
+  18          
+  19          
+  20          /****************************************
+  21          *函数名称:Spi0MasterInit
+  22          *输    入:无
+  23          *输    出:无
+  24          *功    能:SPI0初始化为主机模式
+  25          ******************************************/
+  26          VOID SpiMasterInit(VOID)
+  27          {
+  28   1      #if 0
+                   /* SPI MISO P1.4输入*/
+                  P1M1|=  1<<4 ;
+                  P1M0&=~(1<<4);
+                   
+                   /* SPI MOSI,SCK,CS P1.2,P1.3,P1.5推挽输出*/
+                  P1M1&=~((1<<2)|(1<<3)|(1<<5));
+                  P1M0|=  (1<<2)|(1<<3)|(1<<5);
+                   
+                  SPI_CS(1);
+                  SPI_MOSI(1);
+                  SPI_SCK(1);
+              #else 
+  41   1          P1M1&=~(1<<2);
+  42   1          P1M0|= (1<<2);
+  43   1          SPDAT  = 0;         //清空数据寄存器
+  44   1          SPSTAT = SPIF|WCOL; //清空SPI状态寄存器
+  45   1          
+  46   1      #if FOSC==33000000UL    
+                  SPCTL  = SPEN|MSTR|SP_CLK1|SSIG; //SPI设置为主机模式
+              #endif
+  49   1      
+  50   1      #if FOSC==24000000UL  
+  51   1          SPCTL  = SPEN|MSTR|SP_CLK0|SSIG; //SPI设置为主机模式
+  52   1      #endif    
+  53   1          
+  54   1      #endif     
+C51 COMPILER V9.00   SPI                                                                   09/02/2017 11:27:13 PAGE 2   
+
+  55   1      }
+  56          
+  57          /****************************************
+  58          *函数名称:SpiWriteRead
+  59          *输    入:ucData 要发送的数据
+  60          *输    出:返回字节数据
+  61          *功    能:SPI读写数据
+  62          ******************************************/
+  63          #if 0
+              UINT8 SpiWriteRead(UINT8 d)
+              {
+                  UINT8 i;
+                
+                  SPI_SCK(0);
+                
+                  for(i=0; i<8; i++)
+                  {
+                      /*   发送字节高位 */
+                      if(d & 0x80)
+                      {
+                         SPI_MOSI(1);
+                      }
+                      else
+                      {
+                         SPI_MOSI(0);
+                      }
+                      
+                      /*   接收字节高位 */
+                      d<<=1;
+                      
+                      SPI_SCK(1);
+                    
+                      if(SPI_MISO())
+                      {
+                         d|=0x01;
+                      }
+                        
+                      SPI_SCK(0);
+              
+                  
+                  } 
+                  
+                  return d;
+              }
+              #else
+ 100          
+ 101          
+ 102          
+ 103          
+ 104          UINT8 SpiWriteRead(UINT8 d)
+ 105          {
+ 106   1          SPDAT = d;                  //触发SPI发送数据
+ 107   1          while (!(SPSTAT & SPIF));   //等待发送完成
+ 108   1          SPSTAT = SPIF | WCOL;       //清除SPI状态位
+ 109   1          return SPDAT;               //返回SPI数据
+ 110   1      }
+ 111          #endif
+ 112          
+ 113          VOID SpiSetSpeedLow(VOID)
+ 114          {
+ 115   1          SPCTL  &=~SP_CLK3; 
+ 116   1          SPCTL |=SP_CLK3;
+C51 COMPILER V9.00   SPI                                                                   09/02/2017 11:27:13 PAGE 3   
+
+ 117   1      }
+ 118          
+ 119          VOID SpiSetSpeedHigh(VOID)
+ 120          {
+ 121   1          SPCTL  &=~SP_CLK3; 
+ 122   1      #if FOSC==33000000UL    
+                  SPCTL  |=SP_CLK1;
+              #endif
+ 125   1      
+ 126   1      #if FOSC==24000000UL  
+ 127   1          SPCTL  |=SP_CLK0;
+ 128   1      #endif
+ 129   1      }
+ 130          
+ 131          
+ 132          
+ 133          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     40    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

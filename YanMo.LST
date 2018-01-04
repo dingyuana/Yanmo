@@ -1,0 +1,76 @@
+C51 COMPILER V9.00   YANMO                                                                 09/12/2017 13:50:33 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE YANMO
+OBJECT MODULE PLACED IN YanMo.OBJ
+COMPILER INVOKED BY: d:\Keil\C51\BIN\C51.EXE YanMo.C BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          char code menu[] = 
+   2             "\n"
+   3             "+***** TRAFFIC LIGHT CONTROLLER using C51 and RTX-51 tiny *****+\n"
+   4             "| This program is a simple Traffic Light Controller.  Between  |\n"
+   5             "| start time and end time the system controls a traffic light  |\n"
+   6             "| with pedestrian self-service.  Outside of this time range    |\n"
+   7             "| the yellow caution lamp is blinking.                         |\n"
+   8             "+ command -+ syntax -----+ function ---------------------------+\n"
+   9             "| Display  | D           | display times                       |\n"
+  10             "| Time     | T hh:mm:ss  | set clock time                      |\n"
+  11             "| Start    | S hh:mm:ss  | set start time                      |\n"
+  12             "| End      | E hh:mm:ss  | set end time                        |\n"
+  13             "+----------+-------------+-------------------------------------+\n";
+  14          #include <rtx51tny.h>                 /* RTX-51 tiny functions & defines      */
+  15          #include <stdio.h>                    /* standard I/O .h-file                 */
+  16          #include <ctype.h>                    /* character functions                  */
+  17          #include <string.h>                   /* string and memory functions          */
+  18          
+  19          #include "YanMo_8051.H"                  /* project specific header file         */
+*** WARNING C318 IN LINE 19 OF YanMo.C: can't open file 'YanMo_8051.H'
+  20          
+  21          struct time ctime = { 12,  0,  0 };   /* storage for clock time values        */
+*** ERROR C230 IN LINE 21 OF YANMO.C: 'time': unknown struct/union/enum tag
+  22          struct time start = {  7, 30,  0 };   /* storage for start time values        */
+*** ERROR C230 IN LINE 22 OF YANMO.C: 'time': unknown struct/union/enum tag
+  23          struct time end   = { 18, 30,  0 };   /* storage for end   time values        */
+*** ERROR C230 IN LINE 23 OF YANMO.C: 'time': unknown struct/union/enum tag
+  24          
+  25          sbit  red    = P2^2;                  /* I/O Pin:  red    lamp output         */
+*** ERROR C202 IN LINE 25 OF YANMO.C: 'P2': undefined identifier
+  26          sbit  yellow = P2^1;                  /* I/O Pin:  yellow lamp output         */
+*** ERROR C202 IN LINE 26 OF YANMO.C: 'P2': undefined identifier
+  27          sbit  green  = P2^0;                  /* I/O Pin:  green  lamp output         */
+*** ERROR C202 IN LINE 27 OF YANMO.C: 'P2': undefined identifier
+  28          sbit  stop   = P2^3;                  /* I/O Pin:  stop   lamp output         */
+*** ERROR C202 IN LINE 28 OF YANMO.C: 'P2': undefined identifier
+  29          sbit  walk   = P2^4;                  /* I/O Pin:  walk   lamp output         */
+*** ERROR C202 IN LINE 29 OF YANMO.C: 'P2': undefined identifier
+  30          sbit  key    = P2^5;                  /* I/O Pin:  self-service key input     */
+*** ERROR C202 IN LINE 30 OF YANMO.C: 'P2': undefined identifier
+  31          
+  32          char idata inline[16];                /* storage for command input line       */
+  33          
+  34          
+  35          /******************************************************************************/
+  36          /*        Task 0 'init': Initialize                                           */
+  37          /******************************************************************************/
+  38          void init (void) _task_ INIT  {       /* program execution starts here        */
+*** ERROR C141 IN LINE 38 OF YANMO.C: syntax error near 'INIT', expected 'const'
+*** ERROR C129 IN LINE 38 OF YANMO.C: missing ';' before '{'
+  39            serial_init ();                     /* initialize the serial interface      */
+  40                                                /* configure I/O port                   */
+  41            P2M1 = 0x1F;                        /* P2.0-P.2.4 output, P2.5-P2.7 input   */
+  42          
+  43            os_create_task (CLOCK);             /* start clock task                     */
+C51 COMPILER V9.00   YANMO                                                                 09/12/2017 13:50:33 PAGE 2   
+
+  44            os_create_task (COMMAND);           /* start command task                   */
+  45            os_create_task (LIGHTS);            /* start lights task                    */
+  46            os_create_task (KEYREAD);           /* start keyread task                   */
+  47            os_delete_task (INIT);              /* stop init task (no longer needed)    */
+  48          }
+  49          
+  50          
+  51          bit display_time = 0;                 /* flag:  signal cmd state display_time */
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  11 ERROR(S)

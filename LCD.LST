@@ -1,0 +1,642 @@
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE LCD
+OBJECT MODULE PLACED IN .\output\LCD.obj
+COMPILER INVOKED BY: d:\Keil\C51\BIN\C51.EXE LCD.c COMPACT WARNINGLEVEL(0) BROWSE INCDIR(..\Common;..\Include) DEBUG OBJ
+                    -ECTEXTEND TABS(2) OBJECT(.\output\LCD.obj)
+
+line level    source
+
+   1          #include "SmartM_8051.h"
+   2          
+   3          
+   4          STATIC UINT8 g_ucFontPos     =LCD_FONT_IN_SD ;
+   5          STATIC UINT8 g_ucLcdDirection=LCD_DIRECTION_180;
+   6          STATIC UINT8 g_ucLcdType     =LCD_TYPE_UNKNOWN;
+   7          
+   8          
+   9          /****************************************
+  10          *函数名称:LcdWriteBus
+  11          *输    入:VH -高8位数据
+  12                    VL -低8位数据
+  13          *输    出:无
+  14          *功    能:Lcd并行数据传输
+  15          ******************************************/                          
+  16          VOID LcdWriteBus(UINT8 VH,UINT8 VL)   //并行数据写入函数
+  17          { 
+  18   1      
+  19   1        HC573_LE(1);
+  20   1        LCD_DATAPORT_H=VL;                  //先将低8位数据送出
+  21   1        HC573_LE(0);                        //锁存
+  22   1        LCD_DATAPORT_H=VH;                  //再送高8位数据   
+  23   1        LCD_WR(0);
+  24   1        LCD_WR(1); 
+  25   1      
+  26   1      }
+  27          /****************************************
+  28          *函数名称:LcdWriteCmd
+  29          *输    入:VH -高8位数据
+  30                    VL -低8位数据
+  31          *输    出:无
+  32          *功    能:Lcd写命令
+  33          ******************************************/   
+  34          VOID LcdWriteCmd(UINT8 VH,UINT8 VL)  //发送命令-8位参数
+  35          { 
+  36   1          LCD_RS(0);
+  37   1          LcdWriteBus(VH,VL);
+  38   1      }
+  39          /****************************************
+  40          *函数名称:LcdWriteCmd
+  41          *输    入:VH -高8位数据
+  42                    VL -低8位数据
+  43          *输    出:无
+  44          *功    能:Lcd写数据
+  45          ******************************************/ 
+  46          VOID LcdWriteData(UINT8 VH,UINT8 VL) //发送数据-8位参数
+  47          {
+  48   1          LCD_RS(1);
+  49   1          LcdWriteBus(VH,VL);
+  50   1      }
+  51          /****************************************
+  52          *函数名称:LcdWriteCmdData
+  53          *输    入:VH -高8位数据
+  54                    VL -低8位数据
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 2   
+
+  55          *输    出:无
+  56          *功    能:Lcd写数据
+  57          ******************************************/ 
+  58          VOID LcdWriteCmdData(UINT16 cmd,UINT16 val)      //发送数据命令
+  59          {
+  60   1          LcdWriteCmd(cmd>>8,cmd);
+  61   1          LcdWriteData(val>>8,val);
+  62   1      }
+  63          /****************************************
+  64          *函数名称:LcdAddressSet
+  65          *输    入:x1 -横坐标1
+  66                    y1 -纵坐标1
+  67                    x2 -横坐标2
+  68                    y2 -纵坐标2
+  69          *输    出:无
+  70          *功    能:Lcd显示地址
+  71          ******************************************/ 
+  72          VOID LcdAddressSet(UINT16 x1,UINT16 y1,UINT16 x2,UINT16 y2)
+  73          {
+  74   1          UINT16 Lcd_x1=x1,Lcd_y1=y1,Lcd_x2=x2,Lcd_y2=y2;
+  75   1        
+  76   1           /*   检测屏幕是否翻转180度 */
+  77   1          if(g_ucLcdDirection == LCD_DIRECTION_180)
+  78   1          {
+  79   2             Lcd_x1=LCD_WIDTH-x2;
+  80   2             Lcd_x2=LCD_WIDTH-x1;
+  81   2             Lcd_y1=LCD_HEIGHT-y2;
+  82   2             Lcd_y2=LCD_HEIGHT-y1;
+  83   2          }
+  84   1          
+  85   1           /*   检测LCD类型 */
+  86   1          switch(g_ucLcdType)
+  87   1          {
+  88   2            case LCD_TYPE_24:
+  89   2            {
+  90   3                  LcdWriteCmd(0x00,0x20);LcdWriteData(Lcd_x1>>8,Lcd_x1); //设置X坐标位置    
+  91   3                  LcdWriteCmd(0x00,0x21);LcdWriteData(Lcd_y1>>8,Lcd_y1);  //设置Y坐标位置
+  92   3       
+  93   3                  LcdWriteCmd(0x00,0x50);LcdWriteData(Lcd_x1>>8,Lcd_x1);//开始X
+  94   3      
+  95   3              
+  96   3                  LcdWriteCmd(0x00,0x52);LcdWriteData(Lcd_y1>>8,Lcd_y1); //开始Y    
+  97   3                  LcdWriteCmd(0x00,0x51);LcdWriteData(Lcd_x2>>8,Lcd_x2); //结束X
+  98   3                  LcdWriteCmd(0x00,0x53);LcdWriteData(Lcd_y2>>8,Lcd_y2);  //结束Y
+  99   3                
+ 100   3                              LcdWriteCmd(0x00,0x22);           
+ 101   3              
+ 102   3            }break;
+ 103   2            
+ 104   2            
+ 105   2            case LCD_TYPE_32:
+ 106   2            {
+ 107   3                  LcdWriteCmd(0x00,0x44);LcdWriteData(Lcd_x2,Lcd_x1);   
+ 108   3                  LcdWriteCmd(0x00,0x45);LcdWriteData(Lcd_y1>>8,Lcd_y1);  
+ 109   3                  LcdWriteCmd(0x00,0x46);LcdWriteData(Lcd_y2>>8,Lcd_y2);
+ 110   3              
+ 111   3                  LcdWriteCmd(0x00,0x4E);LcdWriteData(Lcd_x1>>8,Lcd_x1);    
+ 112   3                  LcdWriteCmd(0x00,0x4F);LcdWriteData(Lcd_y1>>8,Lcd_y1); 
+ 113   3                  LcdWriteCmd(0x00,0x22);           
+ 114   3            }break;
+ 115   2      
+ 116   2            default:break;        
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 3   
+
+ 117   2          }
+ 118   1                     
+ 119   1      }
+ 120          /****************************************
+ 121          *函数名称:LcdCleanScreen
+ 122          *输    入:usColor -颜色
+ 123          *输    出:无
+ 124          *功    能:Lcd清屏
+ 125          ******************************************/ 
+ 126          VOID LcdCleanScreen(UINT16 usColor)
+ 127          {
+ 128   1         UINT16 i,j;
+ 129   1      
+ 130   1         LcdAddressSet(0,0,239,319);
+ 131   1      
+ 132   1         for(i=0;i<320;i++)
+ 133   1         {
+ 134   2            for (j=0;j<240;j++)
+ 135   2            {
+ 136   3                 LcdWriteData(usColor>>8,usColor);
+ 137   3            }
+ 138   2         }
+ 139   1      }
+ 140          /****************************************
+ 141          *函数名称:LcdInit
+ 142          *输    入:ucFontPos       -字符存储位置
+ 143                    ucLcdDirection  -显示方向
+ 144          *输    出:无
+ 145          *功    能:Lcd初始化
+ 146          ******************************************/ 
+ 147          VOID LcdInit(UINT8 ucFontPos,UINT8 ucLcdDirection)
+ 148          {
+ 149   1        /* P2口推挽输出 */
+ 150   1        P2M1=0;
+ 151   1        P2M0=0xFF;
+ 152   1        
+ 153   1        /* LCD_WR P3.6引脚，推挽输出 */
+ 154   1        P3M1&=~(1<<6);
+ 155   1        P3M0|=  1<<6 ;
+ 156   1        
+ 157   1        /* LCD_RS P1.1引脚，推挽输出 */
+ 158   1        P1M1&=~(1<<1);
+ 159   1        P1M0|=  1<<1 ;  
+ 160   1        
+ 161   1        /* H573_LE P0.0引脚，推挽输出 */
+ 162   1        P0M1&=~(1<<0);
+ 163   1        P0M0|=  1<<0 ;    
+ 164   1        
+ 165   1        g_ucFontPos = ucFontPos;
+ 166   1      
+ 167   1        g_ucLcdDirection = ucLcdDirection;
+ 168   1        
+ 169   1        if(g_ucLcdType == LCD_TYPE_24)
+ 170   1        {
+ 171   2           LcdWriteCmdData(0x0001,0x0100); 
+ 172   2           LcdWriteCmdData(0x0002,0x0700); 
+ 173   2           LcdWriteCmdData(0x0003,0x1030); 
+ 174   2           LcdWriteCmdData(0x0004,0x0000); 
+ 175   2           LcdWriteCmdData(0x0008,0x0207);  
+ 176   2           LcdWriteCmdData(0x0009,0x0000);
+ 177   2           LcdWriteCmdData(0x000A,0x0000); 
+ 178   2           LcdWriteCmdData(0x000C,0x0000); 
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 4   
+
+ 179   2           LcdWriteCmdData(0x000D,0x0000);
+ 180   2           LcdWriteCmdData(0x000F,0x0000);
+ 181   2           LcdWriteCmdData(0x0010,0x0000);   
+ 182   2           LcdWriteCmdData(0x0011,0x0007);  
+ 183   2           LcdWriteCmdData(0x0012,0x0000);  
+ 184   2           LcdWriteCmdData(0x0013,0x0000); 
+ 185   2           LcdWriteCmdData(0x0010,0x1290);   
+ 186   2           LcdWriteCmdData(0x0011,0x0227);
+ 187   2           LcdWriteCmdData(0x0012,0x001d); 
+ 188   2           LcdWriteCmdData(0x0013,0x1500);
+ 189   2           LcdWriteCmdData(0x0029,0x0018); 
+ 190   2           LcdWriteCmdData(0x002B,0x000D); 
+ 191   2           LcdWriteCmdData(0x0030,0x0004);
+ 192   2           LcdWriteCmdData(0x0031,0x0307);
+ 193   2           LcdWriteCmdData(0x0032,0x0002);
+ 194   2           LcdWriteCmdData(0x0035,0x0206);
+ 195   2           LcdWriteCmdData(0x0036,0x0408);
+ 196   2           LcdWriteCmdData(0x0037,0x0507); 
+ 197   2           LcdWriteCmdData(0x0038,0x0204);
+ 198   2           LcdWriteCmdData(0x0039,0x0707); 
+ 199   2           LcdWriteCmdData(0x003C,0x0405);
+ 200   2           LcdWriteCmdData(0x003D,0x0F02); 
+ 201   2           LcdWriteCmdData(0x0050,0x0000); 
+ 202   2           LcdWriteCmdData(0x0051,0x00EF);
+ 203   2           LcdWriteCmdData(0x0052,0x0000); 
+ 204   2           LcdWriteCmdData(0x0053,0x013F);  
+ 205   2           LcdWriteCmdData(0x0060,0xA700); 
+ 206   2           LcdWriteCmdData(0x0061,0x0001); 
+ 207   2           LcdWriteCmdData(0x006A,0x0000); 
+ 208   2           LcdWriteCmdData(0x0080,0x0000); 
+ 209   2           LcdWriteCmdData(0x0081,0x0000); 
+ 210   2           LcdWriteCmdData(0x0082,0x0000); 
+ 211   2           LcdWriteCmdData(0x0083,0x0000); 
+ 212   2           LcdWriteCmdData(0x0084,0x0000); 
+ 213   2           LcdWriteCmdData(0x0085,0x0000); 
+ 214   2           LcdWriteCmdData(0x0090,0x0010); 
+ 215   2           LcdWriteCmdData(0x0092,0x0600); 
+ 216   2           LcdWriteCmdData(0x0093,0x0003); 
+ 217   2           LcdWriteCmdData(0x0095,0x0110); 
+ 218   2           LcdWriteCmdData(0x0097,0x0000); 
+ 219   2           LcdWriteCmdData(0x0098,0x0000);
+ 220   2           LcdWriteCmdData(0x0007,0x0133);  
+ 221   2        }
+ 222   1      
+ 223   1        if(g_ucLcdType == LCD_TYPE_32)
+ 224   1        {
+ 225   2            LcdWriteCmdData(0x0000,0x0001);    Delayms(1);//打开晶振
+ 226   2            LcdWriteCmdData(0x0003,0xA8A4);    Delayms(1);   
+ 227   2            LcdWriteCmdData(0x000C,0x0000);    Delayms(1);   
+ 228   2            LcdWriteCmdData(0x000D,0x080C);    Delayms(1);   
+ 229   2            LcdWriteCmdData(0x000E,0x2B00);    Delayms(1);   
+ 230   2            LcdWriteCmdData(0x001E,0x00B7);    Delayms(1);   
+ 231   2            LcdWriteCmdData(0x0001,0x2B3F);    Delayms(1); //驱动输出控制320*240  0
+ 232   2            LcdWriteCmdData(0x0002,0x0600);    Delayms(1);
+ 233   2            LcdWriteCmdData(0x0010,0x0000);    Delayms(1);
+ 234   2            LcdWriteCmdData(0x0011,0x6070);    Delayms(1); //定义数据格式  16位色 
+ 235   2            LcdWriteCmdData(0x0005,0x0000);    Delayms(1);
+ 236   2            LcdWriteCmdData(0x0006,0x0000);    Delayms(1);
+ 237   2            LcdWriteCmdData(0x0016,0xEF1C);    Delayms(1);
+ 238   2            LcdWriteCmdData(0x0017,0x0003);    Delayms(1);
+ 239   2            LcdWriteCmdData(0x0007,0x0233);    Delayms(1);       
+ 240   2            LcdWriteCmdData(0x000B,0x0000);    Delayms(1);
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 5   
+
+ 241   2            LcdWriteCmdData(0x000F,0x0000);    Delayms(1);//扫描开始地址
+ 242   2            LcdWriteCmdData(0x0041,0x0000);    Delayms(1);
+ 243   2            LcdWriteCmdData(0x0042,0x0000);    Delayms(1);
+ 244   2            LcdWriteCmdData(0x0048,0x0000);    Delayms(1);
+ 245   2            LcdWriteCmdData(0x0049,0x013F);    Delayms(1);
+ 246   2            LcdWriteCmdData(0x004A,0x0000);    Delayms(1);
+ 247   2            LcdWriteCmdData(0x004B,0x0000);    Delayms(1);
+ 248   2            LcdWriteCmdData(0x0044,0xEF00);    Delayms(1);
+ 249   2            LcdWriteCmdData(0x0045,0x0000);    Delayms(1);
+ 250   2            LcdWriteCmdData(0x0046,0x013F);    Delayms(1);
+ 251   2            LcdWriteCmdData(0x0030,0x0707);    Delayms(1);
+ 252   2            LcdWriteCmdData(0x0031,0x0204);    Delayms(1);
+ 253   2            LcdWriteCmdData(0x0032,0x0204);    Delayms(1);
+ 254   2            LcdWriteCmdData(0x0033,0x0502);    Delayms(1);
+ 255   2            LcdWriteCmdData(0x0034,0x0507);    Delayms(1);
+ 256   2            LcdWriteCmdData(0x0035,0x0204);    Delayms(1);
+ 257   2            LcdWriteCmdData(0x0036,0x0204);    Delayms(1);
+ 258   2            LcdWriteCmdData(0x0037,0x0502);    Delayms(1);
+ 259   2            LcdWriteCmdData(0x003A,0x0302);    Delayms(1);
+ 260   2            LcdWriteCmdData(0x003B,0x0302);    Delayms(1);
+ 261   2            LcdWriteCmdData(0x0023,0x0000);    Delayms(1);
+ 262   2            LcdWriteCmdData(0x0024,0x0000);    Delayms(1);
+ 263   2            LcdWriteCmdData(0x0025,0x8000);    Delayms(1);
+ 264   2            LcdWriteCmdData(0x004f,0);        //行首址0
+ 265   2            LcdWriteCmdData(0x004e,0);        //列首址0
+ 266   2            LcdWriteCmd(0x00,0x22);   
+ 267   2        }
+ 268   1      
+ 269   1      }  
+ 270          /****************************************
+ 271          *函数名称:LcdDrawPoint
+ 272          *输    入:unFontPos       -字符存储位置
+ 273                    unLcdDirection  -显示方向
+ 274          *输    出:无
+ 275          *功    能:Lcd初始化
+ 276          ******************************************/
+ 277          VOID LcdDrawPoint(UINT16 x,UINT16 y,UINT16 color)
+ 278          {
+ 279   1        LcdAddressSet(x,y,x,y);//设置光标位置 
+ 280   1        LcdWriteData(color>>8,color);  
+ 281   1      }
+ 282          /****************************************
+ 283          *函数名称:LcdFill
+ 284          *输    入:x_s    -横坐标起始地址
+ 285                    y_s    -纵坐标起始地址
+ 286                    x_e    -横坐标结束地址
+ 287                    y_e    -纵坐标结束地址
+ 288                    color  -颜色
+ 289          *输    出:无
+ 290          *功    能:Lcd颜色填充
+ 291          ******************************************/
+ 292          VOID LcdFill(UINT16 x_s,UINT16 y_s,UINT16 x_e,UINT16 y_e,UINT16 color)
+ 293          {          
+ 294   1        UINT16 i,j; 
+ 295   1      
+ 296   1        LcdAddressSet(x_s,y_s,x_e,y_e);      //设置光标位置 
+ 297   1      
+ 298   1        for(i=y_s;i<=y_e;i++)
+ 299   1        {                               
+ 300   2          for(j=x_s;j<=x_e;j++)LcdWriteData(color>>8,color);//设置光标位置      
+ 301   2        }                   
+ 302   1      } 
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 6   
+
+ 303          /****************************************
+ 304          *函数名称:LcdSetDirection
+ 305          *输    入:ucDirection 显示方向
+ 306          *输    出:无
+ 307          *功    能:Lcd显示方向设置
+ 308          ******************************************/
+ 309          VOID LcdSetDirection(UINT8 ucDirection)
+ 310          {
+ 311   1           g_ucLcdDirection = ucDirection;
+ 312   1      }
+ 313          /****************************************
+ 314          *函数名称:LcdGetDirection
+ 315          *输    入:无
+ 316          *输    出:无
+ 317          *功    能:Lcd显示方向获取
+ 318          ******************************************/
+ 319          UINT8 LcdGetDirection(VOID)
+ 320          {
+ 321   1      
+ 322   1           return g_ucLcdDirection;
+ 323   1      }
+ 324          /****************************************
+ 325          *函数名称:LcdRemakeFont
+ 326          *输    入:pucCode       -字符缓冲区
+ 327                    ucFontType    -字体
+ 328          *输    出:无
+ 329          *功    能:重置字体
+ 330          ******************************************/
+ 331          STATIC VOID LcdRemakeFont(UINT8 *pucCode,UINT8 ucFontType)
+ 332          {
+ 333   1         UINT8   i=0,j=0,m=0,n=0,ucFontsize=0;
+ 334   1         IDATA UINT8   TempBuf[32]={0};
+ 335   1      
+ 336   1         if(ucFontType ==FONT_IS_ASC16)
+ 337   1         {
+ 338   2            ucFontsize=16;
+ 339   2         }
+ 340   1          
+ 341   1         if(ucFontType ==FONT_IS_HZK16)
+ 342   1         {
+ 343   2            ucFontsize=32;
+ 344   2         }
+ 345   1      
+ 346   1         for(i=0;i<ucFontsize;i++)
+ 347   1         {
+ 348   2             TempBuf[ucFontsize-1-i]=pucCode[i];
+ 349   2             TempBuf[i]=pucCode[ucFontsize-1-i];
+ 350   2         }
+ 351   1      
+ 352   1         for(i=0;i<ucFontsize;i+=2)
+ 353   1         {
+ 354   2            m=0;n=0;
+ 355   2      
+ 356   2            for(j=0; j<8; j++)
+ 357   2            {
+ 358   3              if(TempBuf[i]  &1<<j)m|=1<<(7-j);
+ 359   3              if(TempBuf[i+1]&1<<j)n|=1<<(7-j);
+ 360   3            }
+ 361   2      
+ 362   2            pucCode[i]  =m;
+ 363   2            pucCode[i+1]=n;
+ 364   2         }
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 7   
+
+ 365   1      }
+ 366          /****************************************
+ 367          *函数名称:LcdDrawBigPoint
+ 368          *输    入:x          -横坐标
+ 369                    y          -纵坐标
+ 370                    color      -描点颜色
+ 371          *输    出:无
+ 372          *功    能:Lcd描粗点
+ 373          ******************************************/
+ 374          VOID LcdDrawBigPoint(UINT16 x,UINT16 y,UINT16 color)
+ 375          {
+ 376   1           LcdFill(x,y,x+10,y+10,color);
+ 377   1      }
+ 378          /****************************************
+ 379          *函数名称:LcdShowFlashFont
+ 380          *输    入:x          -横坐标
+ 381                    y          -纵坐标
+ 382                    pucCode    -字符缓冲区
+ 383                    color      -字体颜色
+ 384                    bgcolor    -字体背景色
+ 385          *输    出:无
+ 386          *功    能:Lcd显示时采用存储在Flash中的字体
+ 387          ******************************************/
+ 388          STATIC VOID LcdShowFlashFont(UINT16 x,UINT16 y,INT8 *pucCode,UINT16 color,UINT16 bgcolor)
+ 389          {         
+ 390   1         UINT32  FontOffset;
+ 391   1         UINT8   i=0,j=0;
+ 392   1         
+ 393   1         IDATA UINT8   buf[32]={0}; 
+ 394   1      
+ 395   1         if(pucCode[0]&0x80)  //汉字
+ 396   1         {
+ 397   2            FontOffset =(UINT32)FLASH_HZK16_ADDRESS;
+ 398   2      
+ 399   2            /* 一定要强制类型转换,否则数据溢出*/
+ 400   2            FontOffset+=(UINT32)((94*(UINT32)((UINT8)pucCode[0]-0xA1)+((UINT8)pucCode[1]-0xA1))<<5);
+ 401   2           
+ 402   2            SpiFlashRead(buf,FontOffset,32);
+ 403   2      
+ 404   2            if(LcdGetDirection()!=LCD_DIRECTION_0)
+ 405   2            {
+ 406   3              LcdRemakeFont(buf,FONT_IS_HZK16);
+ 407   3            }
+ 408   2      
+ 409   2            LcdAddressSet(x,y,x+15,y+15); //设置区域    
+ 410   2          
+ 411   2            for(j=0;j<32;j++)
+ 412   2            {
+ 413   3              for(i=0;i<8;i++)
+ 414   3              {          
+ 415   4                  if((buf[j]&(1<<(7-i)))!=0)
+ 416   4                  {
+ 417   5                    LcdWriteData(color>>8,color);
+ 418   5                  } 
+ 419   4                  else
+ 420   4                  {
+ 421   5                    LcdWriteData(bgcolor>>8,bgcolor);
+ 422   5                  }   
+ 423   4              }
+ 424   3            } 
+ 425   2            
+ 426   2         }//ASC
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 8   
+
+ 427   1         else
+ 428   1         {
+ 429   2             FontOffset  =FLASH_ASC16_ADDRESS;
+ 430   2      
+ 431   2             FontOffset += pucCode[0] << 4;
+ 432   2          
+ 433   2             SpiFlashRead(buf,FontOffset,16);
+ 434   2      
+ 435   2             if(LcdGetDirection()!=LCD_DIRECTION_0)
+ 436   2             {
+ 437   3                LcdRemakeFont(buf,FONT_IS_ASC16);
+ 438   3             }
+ 439   2        
+ 440   2             LcdAddressSet(x,y,x+7,y+15); //设置区域  
+ 441   2          
+ 442   2             for(j=0;j<16;j++)
+ 443   2             {
+ 444   3                for(i=0;i<8;i++)
+ 445   3                {          
+ 446   4                  if((buf[j]&(1<<(7-i)))!=0)
+ 447   4                  {
+ 448   5                    LcdWriteData(color>>8,color);
+ 449   5                  } 
+ 450   4                  else
+ 451   4                  {
+ 452   5                    LcdWriteData(bgcolor>>8,bgcolor);
+ 453   5                  }   
+ 454   4                }
+ 455   3             } 
+ 456   2         }
+ 457   1      }
+ 458          /****************************************
+ 459          *函数名称:LcdShowFont
+ 460          *输    入:x          -横坐标
+ 461                    y          -纵坐标
+ 462                    pucCode    -字符缓冲区
+ 463                    color      -字体颜色
+ 464                    bgcolor    -字体背景色
+ 465          *输    出:无
+ 466          *功    能:Lcd显示单个文字
+ 467          ******************************************/
+ 468          VOID LcdShowFont(UINT16 x,UINT16 y,INT8 *pucCode,UINT16 color,UINT16 bgcolor)
+ 469          {
+ 470   1         switch(g_ucFontPos)
+ 471   1         {
+ 472   2            case LCD_FONT_IN_SD:
+ 473   2            {
+ 474   3            }break;
+ 475   2      
+ 476   2            case LCD_FONT_IN_FLASH:
+ 477   2            {
+ 478   3               LcdShowFlashFont(x,y,pucCode,color,bgcolor);
+ 479   3            }break;
+ 480   2      
+ 481   2            default:break;
+ 482   2         }
+ 483   1      
+ 484   1      }
+ 485          /****************************************
+ 486          *函数名称:LcdShowString
+ 487          *输    入:x          -横坐标
+ 488                    y          -纵坐标
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 9   
+
+ 489                    pucCode    -字符缓冲区
+ 490                    color      -字体颜色
+ 491                    bgcolor    -字体背景色
+ 492          *输    出:无
+ 493          *功    能:Lcd显示字符串
+ 494          ******************************************/
+ 495          PIX LcdShowString(UINT16 x,UINT16 y,INT8 *pucCode,UINT16 color,UINT16 bgcolor)
+ 496          {
+ 497   1      
+ 498   1         PIX Pix;
+ 499   1        
+ 500   1         while(pucCode && *pucCode)
+ 501   1         {
+ 502   2             LcdShowFont(x,y,pucCode,color,bgcolor);
+ 503   2      
+ 504   2             if(*pucCode & 0x80)
+ 505   2             {
+ 506   3                 pucCode+=2;
+ 507   3      
+ 508   3                 x+=16;
+ 509   3             }
+ 510   2             else
+ 511   2             {
+ 512   3                 pucCode++;
+ 513   3      
+ 514   3                 x+=16;
+ 515   3             }
+ 516   2      
+ 517   2             if(x>=LCD_WIDTH-16)    //换行
+ 518   2             {
+ 519   3                x = 0;
+ 520   3      
+ 521   3                y+=20;  
+ 522   3             }    
+ 523   2         }
+ 524   1         
+ 525   1         Pix.x=x;
+ 526   1         Pix.y=y;
+ 527   1         
+ 528   1         return Pix;
+ 529   1      
+ 530   1      }
+ 531          /****************************************
+ 532          *函数名称:LcdShowShortString
+ 533          *输    入:x          -横坐标
+ 534                    y          -纵坐标
+ 535                    pucCode    -字符缓冲区
+ 536                    color      -字体颜色
+ 537                    bgcolor    -字体背景色
+ 538          *输    出:无
+ 539          *功    能:Lcd显示字符串
+ 540          ******************************************/
+ 541          PIX LcdShowShortString(UINT16 x,UINT16 y,INT8 *pucCode,UINT16 color,UINT16 bgcolor)
+ 542          {
+ 543   1         
+ 544   1         PIX Pix;
+ 545   1        
+ 546   1         while(pucCode && *pucCode)
+ 547   1         {
+ 548   2             LcdShowFont(x,y,pucCode,color,bgcolor);
+ 549   2      
+ 550   2             if(*pucCode & 0x80)
+C51 COMPILER V9.00   LCD                                                                   09/02/2017 11:27:13 PAGE 10  
+
+ 551   2             {
+ 552   3                 pucCode+=2;
+ 553   3      
+ 554   3                 x+=16;
+ 555   3             }
+ 556   2             else
+ 557   2             {
+ 558   3                 pucCode++;
+ 559   3      
+ 560   3                 x+=8;
+ 561   3             }
+ 562   2      
+ 563   2             if(x>=LCD_WIDTH-8)   //换行
+ 564   2             {
+ 565   3                x = 0;
+ 566   3      
+ 567   3                y+=20;  
+ 568   3             }    
+ 569   2         }
+ 570   1         
+ 571   1         Pix.x=x;
+ 572   1         Pix.y=y;
+ 573   1         
+ 574   1         return Pix;
+ 575   1      
+ 576   1      }
+ 577          /****************************************
+ 578          *函数名称:LcdTypeSet
+ 579          *输    入:unLcdType Lcd类型(2.4/2.8.3.2寸)
+ 580          *输    出:无
+ 581          *功    能:Lcd屏类型设置
+ 582          ******************************************/
+ 583          VOID LcdTypeSet(UINT8 ucLcdType)
+ 584          {
+ 585   1           g_ucLcdType = ucLcdType;
+ 586   1      }
+ 587          /****************************************
+ 588          *函数名称:LcdTypeSet
+ 589          *输    入:无
+ 590          *输    出:Lcd类型(2.4/2.8.3.2寸)
+ 591          *功    能:Lcd屏类型获取
+ 592          ******************************************/
+ 593          UINT8 LcdTypeGet(VOID)
+ 594          {
+ 595   1           return g_ucLcdType;
+ 596   1        
+ 597   1      }
+ 598          
+ 599          
+ 600          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3344    ----
+   CONSTANT SIZE    =     64    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =      3     105
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----      64
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
